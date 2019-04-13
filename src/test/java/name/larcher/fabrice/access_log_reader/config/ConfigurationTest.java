@@ -5,6 +5,7 @@
 
 package name.larcher.fabrice.access_log_reader.config;
 
+import name.larcher.fabrice.access_log_reader.TestUtils;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -35,14 +36,7 @@ public class ConfigurationTest {
 
 	private static final String TEST_PROPERTY_FILE_VALUE = "/home/toto/anyaccessfile.log";
 	private static final Argument TEST_PROPERTY_FILE_KEY = Argument.ACCESS_LOG_FILE_LOCATION;
-	private static String TEST_PROPERTY_FILE_PATH;
-	static {
-		try {
-			TEST_PROPERTY_FILE_PATH = Paths.get(ClassLoader.getSystemResource("test.properties").toURI()).toString();
-		} catch (URISyntaxException e) {
-			Assert.fail(e.getMessage());
-		}
-	}
+	private static final String TEST_PROPERTY_FILE_PATH = TestUtils.getTestResourcePath("test.properties").toString();
 
 	@Test
 	public void configurationFileRead_commandArgument() {

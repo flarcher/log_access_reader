@@ -7,6 +7,7 @@ package name.larcher.fabrice.access_log_reader.config;
 
 import java.io.BufferedReader;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
@@ -40,21 +41,19 @@ public final class Configuration {
 			Function.identity()));
 
 	private static final Set<Argument> ALL_ARGUMENTS = EnumSet.allOf(Argument.class);
+
 	private static Set<Argument> unresolvedArguments(Map<Argument, String> argsMap) {
 		return ALL_ARGUMENTS.stream()
 				.filter(arg -> !argsMap.containsKey(arg))
 				.collect(Collectors.toSet());
-		/*return argsMap.entrySet().stream()
-			.filter(entry -> entry.getValue() == null)
-			.map(Map.Entry::getKey)
-			.collect(Collectors.toSet());*/
 	}
 
 	private static Map<String, String> readProperties(String configFileLocation) throws IOException {
 		try {
 			Path configFilePath = Paths.get(configFileLocation);
 			Properties properties = new Properties();
-			try (BufferedReader reader = Files.newBufferedReader(configFilePath)) {
+			try (BufferedReader reader = Files.newBufferedReader(configFilePath,
+					StandardCharsets.ISO_8859_1 /* because of the properties format */)) {
 				properties.load(reader);
 			} // Java7+ auto-closing `try` block
 			return properties.stringPropertyNames().stream()

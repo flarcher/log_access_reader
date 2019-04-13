@@ -8,7 +8,7 @@ package name.larcher.fabrice.access_log_reader.config;
 import java.nio.file.*;
 
 /**
- * All configuration arguments for the program.
+ * Configuration argument for the program.
  */
 public enum Argument {
 
@@ -38,6 +38,32 @@ public enum Argument {
 		}
 	},
 
+	READ_IDLE_MILLIS("READ_IDLE_TIME", 'w') {
+
+		@Override
+		String getDefaultValue() {
+			return String.valueOf(10L);
+		}
+
+		@Override
+		boolean isValid(String value) {
+			return isPositiveLong(value);
+		}
+	},
+
+	MAIN_IDLE_MILLIS("MAIN_IDLE_TIME", 'w') {
+
+		@Override
+		String getDefaultValue() {
+			return String.valueOf(100L);
+		}
+
+		@Override
+		boolean isValid(String value) {
+			return isPositiveLong(value);
+		}
+	},
+
 	;
 
 	private static String getTmpDirectory() {
@@ -48,7 +74,16 @@ public enum Argument {
 		try {
 			Path path = Paths.get(filePath);
 			return Files.isRegularFile(path) && Files.isReadable(path);
-		} catch (InvalidPathException ipe) {
+		} catch (@SuppressWarnings("unused") InvalidPathException ipe) {
+			return false;
+		}
+	}
+
+	private static boolean isPositiveLong(String longStr) {
+		try {
+			return Long.valueOf(longStr) > 0;
+		}
+		catch (@SuppressWarnings("unused") NumberFormatException e) {
 			return false;
 		}
 	}
