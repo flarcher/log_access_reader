@@ -9,8 +9,6 @@ import name.larcher.fabrice.access_log_reader.TestUtils;
 import org.junit.Assert;
 import org.junit.Test;
 
-import java.net.URISyntaxException;
-import java.nio.file.Paths;
 import java.util.Arrays;
 
 public class ConfigurationTest {
@@ -57,7 +55,36 @@ public class ConfigurationTest {
 	public void defaultRetrieval() {
 		Configuration configuration = new Configuration(new String[0], false, null);
 		for (Argument arg : Argument.values()) {
-			Assert.assertEquals(arg.getDefaultValue(), configuration.getArgument(arg));
+			String defaultValue = arg.getDefaultValue();
+			Assert.assertNotNull(defaultValue);
+			Assert.assertEquals(defaultValue, configuration.getArgument(arg));
 		}
+	}
+
+	@Test
+	public void noCommandFlagConflict() {
+		Argument[] values = Argument.values();
+		Assert.assertEquals(values.length, Arrays.stream(values)
+				.map(Argument::getCommandOption)
+				.distinct()
+				.count());
+	}
+
+	@Test
+	public void noEnvParamConflict() {
+		Argument[] values = Argument.values();
+		Assert.assertEquals(values.length, Arrays.stream(values)
+				.map(Argument::getEnvironmentParameter)
+				.distinct()
+				.count());
+	}
+
+	@Test
+	public void noPropertyNameConflict() {
+		Argument[] values = Argument.values();
+		Assert.assertEquals(values.length, Arrays.stream(values)
+				.map(Argument::getPropertyName)
+				.distinct()
+				.count());
 	}
 }

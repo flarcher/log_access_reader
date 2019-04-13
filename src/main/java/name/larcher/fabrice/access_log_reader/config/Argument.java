@@ -51,7 +51,7 @@ public enum Argument {
 		}
 	},
 
-	MAIN_IDLE_MILLIS("MAIN_IDLE_TIME", 'w') {
+	MAIN_IDLE_MILLIS("MAIN_IDLE_TIME", 'm') {
 
 		@Override
 		String getDefaultValue() {
