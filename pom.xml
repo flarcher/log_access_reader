@@ -34,7 +34,7 @@
                 <configuration>
                     <archive>
                         <manifest>
-                            <mainClass>name.larcher.fabrice.access_log_reader.Main</mainClass>
+                            <mainClass>name.larcher.fabrice.logncat.Main</mainClass>
                         </manifest>
                         <manifestEntries>
                             <appVersion>${project.version}</appVersion>

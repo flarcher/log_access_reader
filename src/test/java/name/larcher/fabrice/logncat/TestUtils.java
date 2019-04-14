@@ -3,7 +3,7 @@
  * Fabrice Larcher
  */
 
-package name.larcher.fabrice.access_log_reader;
+package name.larcher.fabrice.logncat;
 
 import org.junit.Assert;
 

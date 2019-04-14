@@ -3,9 +3,9 @@
  * Fabrice Larcher
  */
 
-package name.larcher.fabrice.access_log_reader.config;
+package name.larcher.fabrice.logncat.config;
 
-import name.larcher.fabrice.access_log_reader.TestUtils;
+import name.larcher.fabrice.logncat.TestUtils;
 import org.junit.Assert;
 import org.junit.Test;
 

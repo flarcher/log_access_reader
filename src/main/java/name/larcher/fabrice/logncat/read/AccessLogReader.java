@@ -3,7 +3,7 @@
  * Fabrice Larcher
  */
 
-package name.larcher.fabrice.access_log_reader.read;
+package name.larcher.fabrice.logncat.read;
 
 import java.io.BufferedReader;
 import java.io.IOException;

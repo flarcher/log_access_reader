@@ -3,7 +3,7 @@
  * Fabrice Larcher
  */
 
-package name.larcher.fabrice.access_log_reader.config;
+package name.larcher.fabrice.logncat.config;
 
 import java.nio.file.*;
 import java.time.format.DateTimeFormatter;
@@ -75,7 +75,7 @@ public enum Argument {
 	 * The value must be compliant with {@link DateTimeFormatter}.
 	 * Is not the value of access log configuration {@literal LogFileDateExt}.
 	 */
-	DATE_TIME_FORMAT("DATE_TIME", 'd',
+	DATE_TIME_FORMAT("DATE_TIME_FORMAT", 'd',
 			"The access log date-time format described with the Java convention (not in the LogFileDateExt format)") {
 
 		@Override

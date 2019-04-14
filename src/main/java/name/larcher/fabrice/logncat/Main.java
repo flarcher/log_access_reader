@@ -2,12 +2,13 @@
  * Copyright (c) 2019.
  * Fabrice Larcher
  */
-package name.larcher.fabrice.access_log_reader;
+package name.larcher.fabrice.logncat;
 
-import name.larcher.fabrice.access_log_reader.config.Argument;
-import name.larcher.fabrice.access_log_reader.config.Configuration;
-import name.larcher.fabrice.access_log_reader.read.AccessLogParser;
-import name.larcher.fabrice.access_log_reader.read.AccessLogReader;
+
+import name.larcher.fabrice.logncat.config.Argument;
+import name.larcher.fabrice.logncat.config.Configuration;
+import name.larcher.fabrice.logncat.read.AccessLogParser;
+import name.larcher.fabrice.logncat.read.AccessLogReader;
 
 import java.io.PrintStream;
 import java.nio.file.Paths;

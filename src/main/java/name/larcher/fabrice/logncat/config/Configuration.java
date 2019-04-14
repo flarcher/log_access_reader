@@ -3,8 +3,10 @@
  * Fabrice Larcher
  */
 
-package name.larcher.fabrice.access_log_reader.config;
+package name.larcher.fabrice.logncat.config;
 
+import javax.annotation.Nullable;
+import javax.annotation.concurrent.Immutable;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -15,8 +17,6 @@ import java.nio.file.Paths;
 import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import javax.annotation.Nullable;
-import javax.annotation.concurrent.Immutable;
 
 /**
  * Reads the program configuration from multiple sources and store the resulting configuration in memory.
