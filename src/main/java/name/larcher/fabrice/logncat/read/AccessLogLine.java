@@ -11,7 +11,6 @@ import java.util.Objects;
 
 /**
  * Holds meta data of an access log line.
- * Like {@code 127.0.0.1 - frank [09/May/2018:16:00:42 +0000] "POST /api/user HTTP/1.0" 200 34}.
  */
 @Immutable
 public class AccessLogLine {

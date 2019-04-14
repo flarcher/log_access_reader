@@ -6,6 +6,7 @@
 package name.larcher.fabrice.logncat.config;
 
 import java.nio.file.*;
+import java.time.Duration;
 import java.time.format.DateTimeFormatter;
 
 /**
@@ -53,7 +54,7 @@ public enum Argument {
 
 		@Override
 		boolean isValid(String value) {
-			return isPositiveLong(value);
+			return isPositiveInteger(value);
 		}
 	},
 
@@ -67,7 +68,7 @@ public enum Argument {
 
 		@Override
 		boolean isValid(String value) {
-			return isPositiveLong(value);
+			return isPositiveInteger(value);
 		}
 	},
 
@@ -98,6 +99,34 @@ public enum Argument {
 
 	},
 
+	TOP_SECTION_COUNT("TOP_COUNT", 't',
+			"Top sections count for display") {
+
+		@Override
+		public String getDefaultValue() {
+			return String.valueOf(10);
+		}
+
+		@Override
+		boolean isValid(String value) {
+			return isPositiveInteger(value);
+		}
+	},
+
+	STATISTICS_REFRESH_PERIOD_MILLIS("STATS_PERIOD", 'p',
+			"Statistics refresh period in millis") {
+
+		@Override
+		public String getDefaultValue() {
+			return String.valueOf(Duration.ofSeconds(10L).toMillis());
+		}
+
+		@Override
+		boolean isValid(String value) {
+			return isPositiveInteger(value);
+		}
+	},
+
 	;
 
 	private static String getTmpDirectory() {
@@ -117,9 +146,9 @@ public enum Argument {
 		return path != null && Files.isRegularFile(path) && Files.isReadable(path);
 	}
 
-	private static boolean isPositiveLong(String longStr) {
+	private static boolean isPositiveInteger(String intStr) {
 		try {
-			return Long.valueOf(longStr) > 0;
+			return Integer.valueOf(intStr) > 0;
 		}
 		catch (@SuppressWarnings("unused") NumberFormatException e) {
 			return false;
