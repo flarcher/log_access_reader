@@ -153,14 +153,19 @@ public final class Configuration {
 			.forEach(arg -> argsMap.put(arg, arg.getDefaultValue()));
 
 		// 5th step: We make sure that all argument values are valid
-		Map<Argument, String> invalidPairs = argsMap.entrySet().stream()
-			.filter(entry -> !entry.getKey().isValid(entry.getValue()))
-			.collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-		if (!invalidPairs.isEmpty() && enableValidation) {
-			throw new IllegalArgumentException("Invalid argument value(s): " +
-				invalidPairs.entrySet().stream()
-					.map(entry -> entry.getKey().name() + ": " + entry.getValue())
-					.collect(Collectors.joining(", ")));
+		if (enableValidation) {
+			Map<Argument, String> invalidPairs = argsMap.entrySet().stream()
+				.filter(entry -> entry.getValue() == null || !entry.getKey().isValid(entry.getValue()))
+				.collect(Collectors.toMap(Map.Entry::getKey, entry -> {
+					String argValue = entry.getValue();
+					return argValue != null ? argValue : "null";
+				}));
+			if (!invalidPairs.isEmpty()) {
+				throw new IllegalArgumentException("Invalid argument value(s): " +
+					invalidPairs.entrySet().stream()
+						.map(entry -> entry.getKey().name() + ": " + entry.getValue())
+						.collect(Collectors.joining(", ")));
+			}
 		}
 
 		argumentMap = Collections.unmodifiableMap(argsMap);

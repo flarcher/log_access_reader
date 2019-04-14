@@ -6,6 +6,7 @@ package name.larcher.fabrice.access_log_reader;
 
 import name.larcher.fabrice.access_log_reader.config.Argument;
 import name.larcher.fabrice.access_log_reader.config.Configuration;
+import name.larcher.fabrice.access_log_reader.read.AccessLogParser;
 import name.larcher.fabrice.access_log_reader.read.AccessLogReader;
 
 import java.nio.file.Paths;
@@ -28,9 +29,9 @@ public class Main {
 
 		AccessLogReader reader = new AccessLogReader(
 				Collections.singletonList(line -> System.out.println("hit")),
+				new AccessLogParser(configuration.getArgument(Argument.DATE_TIME_FORMAT)),
 				Paths.get(configuration.getArgument(Argument.ACCESS_LOG_FILE_LOCATION)),
 				Long.valueOf(configuration.getArgument(Argument.READ_IDLE_MILLIS)));
-
 
 		// Starting the engine...
 		Thread.UncaughtExceptionHandler ueh = (Thread t, Throwable e) -> {
@@ -49,12 +50,12 @@ public class Main {
 			}
 		}
 		catch (InterruptedException e) {
-			reader.stop();
+			reader.requestStop();
 			awaitTermination(executorService, false);
 
 		} catch (Throwable t) {
 			// Robustness
-			reader.stop();
+			reader.requestStop();
 			awaitTermination(executorService, true);
 		}
 	}

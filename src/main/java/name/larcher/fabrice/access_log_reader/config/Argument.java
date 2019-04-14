@@ -6,6 +6,9 @@
 package name.larcher.fabrice.access_log_reader.config;
 
 import java.nio.file.*;
+import java.time.format.DateTimeFormatter;
+import java.time.temporal.TemporalField;
+import java.util.Set;
 
 /**
  * Configuration argument for the program.
@@ -15,7 +18,7 @@ public enum Argument {
 	CONFIGURATION_FILE_LOCATION("CONFIG_FILE", 'c') {
 
 		@Override
-		String getDefaultValue() {
+		public String getDefaultValue() {
 			return Paths.get(getTmpDirectory(), "lnc.properties").toAbsolutePath().toString();
 		}
 
@@ -28,7 +31,7 @@ public enum Argument {
 	ACCESS_LOG_FILE_LOCATION("LOG_FILE", 'f') {
 
 		@Override
-		String getDefaultValue() {
+		public String getDefaultValue() {
 			return Paths.get(getTmpDirectory(), "access.log").toAbsolutePath().toString();
 		}
 
@@ -41,7 +44,7 @@ public enum Argument {
 	READ_IDLE_MILLIS("READ_IDLE_TIME", 'w') {
 
 		@Override
-		String getDefaultValue() {
+		public String getDefaultValue() {
 			return String.valueOf(10L);
 		}
 
@@ -54,7 +57,7 @@ public enum Argument {
 	MAIN_IDLE_MILLIS("MAIN_IDLE_TIME", 'm') {
 
 		@Override
-		String getDefaultValue() {
+		public String getDefaultValue() {
 			return String.valueOf(100L);
 		}
 
@@ -62,6 +65,38 @@ public enum Argument {
 		boolean isValid(String value) {
 			return isPositiveLong(value);
 		}
+	},
+
+	/**
+	 * The value must be compliant with {@link DateTimeFormatter}.
+	 * Is not the value of access log configuration {@literal LogFileDateExt}.
+	 */
+	DATE_TIME_FORMAT("DATE_TIME", 'd') {
+
+		@Override
+		public String getDefaultValue() {
+			return "dd/MMM/yyyy:HH:mm:ss Z";
+		}
+
+		@Override
+		boolean isValid(String value) {
+			try {
+				DateTimeFormatter formatter = DateTimeFormatter.ofPattern(value);
+				// We need both the date and the time
+				Set<TemporalField> resolverFields = formatter.getResolverFields();
+				if (resolverFields.stream().noneMatch(TemporalField::isDateBased)) {
+					return false;
+				}
+				if (resolverFields.stream().noneMatch(TemporalField::isTimeBased)) {
+					return false;
+				}
+				return true;
+			}
+			catch (@SuppressWarnings("unused") IllegalArgumentException e) {
+				return false;
+			}
+		}
+
 	},
 
 	;
@@ -112,7 +147,7 @@ public enum Argument {
 		return commandOption;
 	}
 
-	abstract String getDefaultValue();
+	public abstract String getDefaultValue();
 
 	abstract boolean isValid(String value);
 }

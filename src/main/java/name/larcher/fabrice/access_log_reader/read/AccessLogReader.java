@@ -15,6 +15,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
+import java.util.function.Function;
 
 /**
  * Single-threaded task that reads the access log file.
@@ -24,27 +25,32 @@ public class AccessLogReader implements Runnable {
 	/**
 	 * @param listeners         Listeners called each time a new line has been parsed. They are called in the reader's
 	 *                          thread, so they can have a significant impact on the reading throughput.
+	 * @param parser			Parser function
 	 * @param accessLogFilePath The path of the access log file.
 	 * @param idleWaitMillis    Minimum milliseconds count spent when waiting for new lines (only in case when the
 	 *                          reader reached the last line).
 	 */
-	public AccessLogReader(List<Consumer<AccessLogLine>> listeners, Path accessLogFilePath, long idleWaitMillis) {
+	public AccessLogReader(
+			List<Consumer<AccessLogLine>> listeners,
+			Function<String, AccessLogLine> parser,
+			Path accessLogFilePath,
+			long idleWaitMillis) {
 		this.listeners = Collections.unmodifiableList(listeners);
 		this.accessLogFilePath = Objects.requireNonNull(accessLogFilePath);
 		this.idleWaitMillis = idleWaitMillis;
+		this.parser = Objects.requireNonNull(parser);
 	}
 
+	private final Function<String, AccessLogLine> parser;
 	private final long idleWaitMillis;
 	private final List<Consumer<AccessLogLine>> listeners;
 	private final Path accessLogFilePath;
 	private final AtomicBoolean running = new AtomicBoolean(false); // Will be updated concurrently
 
-	private static final AccessLogParser PARSER = new AccessLogParser();
-
 	@Override
 	public void run() {
 		Thread currentThread = Thread.currentThread();
-		currentThread.setName("Reader");
+		currentThread.setName("Reader"); // Quite convenient when debugging :P
 		BufferedReader reader;
 		try {
 			reader = Files.newBufferedReader(accessLogFilePath, StandardCharsets.UTF_8);
@@ -52,13 +58,13 @@ public class AccessLogReader implements Runnable {
 		catch (IOException e) {
 			throw new IllegalStateException("Unable to open " + accessLogFilePath, e);
 		}
-		running.set(true);
+		running.set(true); // Let's go!
 		try {
 			while (running.get()) {
 				String line;
 				try {
 					while ((line = reader.readLine()) != null) {
-						AccessLogLine parsed = PARSER.apply(line);
+						AccessLogLine parsed = parser.apply(line);
 						if (parsed != null) { // Garbage or blank line ?
 							// Note: listeners are called from this thread,
 							// so their implementations have a big impact on the throughput
@@ -84,6 +90,7 @@ public class AccessLogReader implements Runnable {
 				try {
 					Thread.sleep(idleWaitMillis);
 				} catch (InterruptedException e) {
+					currentThread.interrupt(); // In case it came from anywhere else
 					running.set(false);
 					break; // No need for an exception
 				}
@@ -103,10 +110,10 @@ public class AccessLogReader implements Runnable {
 
 	/**
 	 * Stops the reading.
-	 * The effect is not immediate and the minimum delay can be of {@link #idleWaitMillis} plus the sum of listeners
+	 * The effect is not immediate and the delay can be at least of {@link #idleWaitMillis} plus the sum of listeners
 	 * processing times.
 	 */
-	public void stop() {
+	public void requestStop() {
 		running.set(false);
 	}
 

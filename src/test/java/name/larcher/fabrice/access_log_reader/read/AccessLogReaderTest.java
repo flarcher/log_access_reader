@@ -10,24 +10,27 @@ import org.junit.Assert;
 import org.junit.Test;
 
 import java.nio.file.Path;
+import java.time.Instant;
 import java.util.Collections;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Function;
 
 public class AccessLogReaderTest {
 
 	private static final Path TEST_LOG_FILE_PATH = TestUtils.getTestResourcePath("access.log");
 	private static final int TEST_LOG_FILE_LINE_COUNT = 4;
+	private static final Function<String, AccessLogLine> PARSER = line -> new AccessLogLine(Instant.now(), "");
 
 	@Test
 	public void canReadExample() {
-		int lineCount = 4;
 		CountDownLatch countDownLatch = new CountDownLatch(TEST_LOG_FILE_LINE_COUNT);
 		AccessLogReader reader = new AccessLogReader(
 				Collections.singletonList(line -> countDownLatch.countDown()),
+				PARSER,
 				TEST_LOG_FILE_PATH,
 				100L);
 		ExecutorService executorService = Executors.newSingleThreadExecutor();
@@ -39,7 +42,7 @@ public class AccessLogReaderTest {
 			Assert.fail();
 		}
 		Assert.assertTrue(reader.isRunning());
-		reader.stop();
+		reader.requestStop();
 		Assert.assertFalse(reader.isRunning());
 		try {
 			executorService.shutdown();
@@ -64,6 +67,7 @@ public class AccessLogReaderTest {
 					}
 					countDownLatch.countDown();
 				}),
+				PARSER,
 				TEST_LOG_FILE_PATH,
 				idleWaitMillis);
 		Assert.assertFalse(reader.isRunning());
