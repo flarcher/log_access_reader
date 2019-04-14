@@ -71,7 +71,7 @@ public final class Configuration {
 		}
 	}
 
-	public Configuration(String[] arguments) {
+	public Configuration(List<String> arguments) {
 		this(arguments, true, null);
 	}
 
@@ -85,7 +85,7 @@ public final class Configuration {
 	 * @throws IllegalArgumentException If any of all argument can not get a value (even a default value) or has an invalid value.
 	 */
 	public Configuration(
-				String[] arguments,
+				List<String> arguments,
 				boolean enableValidation,
 				@Nullable String defaultConfigFilePath)
 			throws IllegalArgumentException {
@@ -93,7 +93,7 @@ public final class Configuration {
 		EnumMap<Argument, String> argsMap = new EnumMap<>(Argument.class);
 
 		// 1st step: we get values from the command arguments
-		Iterator<String> argumentIterator = Arrays.asList(arguments).iterator();
+		Iterator<String> argumentIterator = arguments.iterator();
 		while (argumentIterator.hasNext()) {
 			final String commandFlag = argumentIterator.next();
 			if (commandFlag.length() != 2 /* The single character plus the dash */) {

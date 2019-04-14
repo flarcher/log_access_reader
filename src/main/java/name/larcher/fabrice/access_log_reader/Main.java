@@ -9,8 +9,12 @@ import name.larcher.fabrice.access_log_reader.config.Configuration;
 import name.larcher.fabrice.access_log_reader.read.AccessLogParser;
 import name.larcher.fabrice.access_log_reader.read.AccessLogReader;
 
+import java.io.PrintStream;
 import java.nio.file.Paths;
+import java.util.Arrays;
 import java.util.Collections;
+import java.util.Comparator;
+import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -20,10 +24,42 @@ import java.util.concurrent.TimeUnit;
  */
 public class Main {
 
+	private static void printHelp() {
+		PrintStream printer = System.out;
+		printer.println("LOG'n CAT \uD83D\uDC31");
+		printer.println(" Prints statistics and notifies alerts by reading access log files.");
+		printer.println();
+		printer.println("Possible arguments are:");
+		printer.println();
+		Arrays.stream(Argument.values())
+				.sorted(Comparator.comparing(Argument::getPropertyName))
+				.forEach( arg -> {
+
+			String name = arg.name().replaceAll("_", " ").toLowerCase();
+			printer.println("-" + arg.getCommandOption() + " <" + name + ">");
+
+			printer.println("  " + arg.getDescription());
+
+			printer.println("  Can be set using the environment variable " + arg.getEnvironmentParameter());
+
+			printer.println("  Can be set as the property " + arg.getPropertyName() + " in the configuration file");
+
+			printer.println("  The default value is «" + arg.getDefaultValue() + "»");
+
+			printer.println();
+		});
+	}
+
 	public static void main(String[] args) {
 
+		List<String> arguments = Arrays.asList(args);
+		if (arguments.contains("-h") || arguments.contains("--help")) {
+			printHelp();
+			System.exit(0);
+		}
+
 		// Read the configuration
-		Configuration configuration = new Configuration(args);
+		Configuration configuration = new Configuration(arguments);
 
 		// Initializing tasks and listeners
 		// TODO: Implement stats/alerts

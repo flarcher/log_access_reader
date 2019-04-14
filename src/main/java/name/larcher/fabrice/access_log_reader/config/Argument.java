@@ -13,7 +13,8 @@ import java.time.format.DateTimeFormatter;
  */
 public enum Argument {
 
-	CONFIGURATION_FILE_LOCATION("CONFIG_FILE", 'c') {
+	CONFIGURATION_FILE_LOCATION("CONFIG_FILE", 'c',
+			"Location of the properties configuration file") {
 
 		@Override
 		public String getDefaultValue() {
@@ -28,7 +29,8 @@ public enum Argument {
 		}
 	},
 
-	ACCESS_LOG_FILE_LOCATION("LOG_FILE", 'f') {
+	ACCESS_LOG_FILE_LOCATION("LOG_FILE", 'f',
+			"Location of the HTTP access log file") {
 
 		@Override
 		public String getDefaultValue() {
@@ -41,7 +43,8 @@ public enum Argument {
 		}
 	},
 
-	READ_IDLE_MILLIS("READ_IDLE_TIME", 'w') {
+	READ_IDLE_MILLIS("READ_IDLE_TIME", 'w',
+			"Maximum idle time in milliseconds in the access log reading loop") {
 
 		@Override
 		public String getDefaultValue() {
@@ -54,7 +57,8 @@ public enum Argument {
 		}
 	},
 
-	MAIN_IDLE_MILLIS("MAIN_IDLE_TIME", 'm') {
+	MAIN_IDLE_MILLIS("MAIN_IDLE_TIME", 'm',
+			"Maximum idle time in milliseconds in main program loop") {
 
 		@Override
 		public String getDefaultValue() {
@@ -71,7 +75,8 @@ public enum Argument {
 	 * The value must be compliant with {@link DateTimeFormatter}.
 	 * Is not the value of access log configuration {@literal LogFileDateExt}.
 	 */
-	DATE_TIME_FORMAT("DATE_TIME", 'd') {
+	DATE_TIME_FORMAT("DATE_TIME", 'd',
+			"The access log date-time format described with the Java convention (not in the LogFileDateExt format)") {
 
 		@Override
 		public String getDefaultValue() {
@@ -124,28 +129,33 @@ public enum Argument {
 	/**
 	 * @param propertyName The property name used both for environment variables names and configuration file property names.
 	 * @param commandOption The command option flag.
+	 * @param desc Short description.
 	 */
-	Argument(String propertyName, char commandOption) {
+	Argument(String propertyName, char commandOption, String desc) {
 		this.propertyName = propertyName;
 		this.commandOption = commandOption;
+		this.description = desc;
 	}
 
 	private final String propertyName;
 	private final char commandOption;
+	private final String description;
 
-	String getPropertyName() {
+	public String getPropertyName() {
 		return propertyName.replaceAll("_", "\\.").toLowerCase();
 	}
 
-	String getEnvironmentParameter() {
+	public String getEnvironmentParameter() {
 		return "LNC_" + propertyName.toUpperCase();
 	}
 
-	char getCommandOption() {
+	public char getCommandOption() {
 		return commandOption;
 	}
 
 	public abstract String getDefaultValue();
 
 	abstract boolean isValid(String value);
+
+	public String getDescription() { return description; }
 }

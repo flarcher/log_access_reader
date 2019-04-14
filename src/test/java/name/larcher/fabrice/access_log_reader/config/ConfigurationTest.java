@@ -10,6 +10,7 @@ import org.junit.Assert;
 import org.junit.Test;
 
 import java.util.Arrays;
+import java.util.Collections;
 
 public class ConfigurationTest {
 
@@ -19,7 +20,7 @@ public class ConfigurationTest {
 		String value = "/home/toto/myaccesses.log";
 		Argument argument = Argument.ACCESS_LOG_FILE_LOCATION;
 		Configuration configuration = new Configuration(
-			Arrays.asList("-" + flag, value).toArray(new String[0]),
+			Arrays.asList("-" + flag, value),
 			false,
 			null);
 		Assert.assertEquals(flag, argument.getCommandOption());
@@ -39,7 +40,7 @@ public class ConfigurationTest {
 	@Test
 	public void configurationFileRead_commandArgument() {
 		Configuration configuration = new Configuration(
-				Arrays.asList("-c", TEST_PROPERTY_FILE_PATH).toArray(new String[0]),
+				Arrays.asList("-c", TEST_PROPERTY_FILE_PATH),
 				false,
 				null);
 		Assert.assertEquals(TEST_PROPERTY_FILE_VALUE, configuration.getArgument(TEST_PROPERTY_FILE_KEY));
@@ -47,13 +48,13 @@ public class ConfigurationTest {
 
 	@Test
 	public void configurationFileRead_byDefault() {
-		Configuration configuration = new Configuration(new String[0], false, TEST_PROPERTY_FILE_PATH);
+		Configuration configuration = new Configuration(Collections.emptyList(), false, TEST_PROPERTY_FILE_PATH);
 		Assert.assertEquals(TEST_PROPERTY_FILE_VALUE, configuration.getArgument(TEST_PROPERTY_FILE_KEY));
 	}
 
 	@Test
 	public void defaultRetrieval() {
-		Configuration configuration = new Configuration(new String[0], false, null);
+		Configuration configuration = new Configuration(Collections.emptyList(), false, null);
 		for (Argument arg : Argument.values()) {
 			String defaultValue = arg.getDefaultValue();
 			Assert.assertNotNull(defaultValue);
