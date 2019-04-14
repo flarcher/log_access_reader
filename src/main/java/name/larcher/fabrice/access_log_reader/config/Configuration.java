@@ -48,7 +48,7 @@ public final class Configuration {
 				.collect(Collectors.toSet());
 	}
 
-	private static Map<String, String> readProperties(String configFileLocation) throws IOException {
+	private static Map<String, String> readProperties(String configFileLocation) {
 		try {
 			Path configFilePath = Paths.get(configFileLocation);
 			Properties properties = new Properties();
@@ -62,8 +62,12 @@ public final class Configuration {
 							properties::getProperty,
 							(l, r) -> r // Property overriding
 					));
-		} catch (InvalidPathException ipe) {
+		}
+		catch (InvalidPathException ipe) {
 			throw new IllegalArgumentException("Invalid configuration file path " + configFileLocation, ipe);
+		}
+		catch (IOException e) {
+			throw new IllegalArgumentException("Unable to read properties from file " + configFileLocation, e);
 		}
 	}
 
@@ -125,26 +129,32 @@ public final class Configuration {
 		// 3rd step: we load the undefined values from a configuration file (if any)
 		Set<Argument> unresolvedArguments = unresolvedArguments(argsMap);
 		if (!unresolvedArguments.isEmpty()) {
-			String configFileLocation = argsMap.get(Argument.CONFIGURATION_FILE_LOCATION);
-			if (configFileLocation == null && defaultConfigFilePath != null) {
-				configFileLocation = defaultConfigFilePath;
-				argsMap.put(Argument.CONFIGURATION_FILE_LOCATION, defaultConfigFilePath);
+			Argument configFileArgument = Argument.CONFIGURATION_FILE_LOCATION;
+			String configFileLocation = argsMap.get(configFileArgument);
+			if (configFileLocation == null) {
+				if (defaultConfigFilePath == null) {
+					defaultConfigFilePath = configFileArgument.getDefaultValue();
+				}
+				if (!configFileArgument.isValid(defaultConfigFilePath)) {
+					throw new IllegalArgumentException("Invalid default configuration file path " + defaultConfigFilePath);
+				}
+				// We do not force the default path if the file does not exists
+				if (Files.isRegularFile(Paths.get(defaultConfigFilePath))) {
+					configFileLocation = defaultConfigFilePath;
+					argsMap.put(configFileArgument, defaultConfigFilePath);
+				}
 			}
 			if (configFileLocation != null) {
-				try {
-					readProperties(configFileLocation)
-						.forEach((key, val) -> {
-							Argument argument = PROPERTY_TO_ARGUMENT.get(key);
-							if (argument == null) {
-								throw new IllegalArgumentException("Unknown property name " + key);
-							}
-							else if (val != null) {
-								argsMap.put(argument, val.trim());
-							}
-						});
-				} catch (IOException e) {
-					throw new IllegalArgumentException("Unable to read properties from file " + configFileLocation, e);
-				}
+				readProperties(configFileLocation)
+					.forEach((key, val) -> {
+						Argument argument = PROPERTY_TO_ARGUMENT.get(key);
+						if (argument == null) {
+							throw new IllegalArgumentException("Unknown property name " + key);
+						}
+						else if (val != null) {
+							argsMap.put(argument, val.trim());
+						}
+					});
 			}
 		}
 
@@ -156,10 +166,10 @@ public final class Configuration {
 		if (enableValidation) {
 			Map<Argument, String> invalidPairs = argsMap.entrySet().stream()
 				.filter(entry -> entry.getValue() == null || !entry.getKey().isValid(entry.getValue()))
-				.collect(Collectors.toMap(Map.Entry::getKey, entry -> {
-					String argValue = entry.getValue();
-					return argValue != null ? argValue : "null";
-				}));
+				.collect(Collectors.toMap(
+						Map.Entry::getKey,
+						entry -> Objects.toString(entry.getValue()) // Null safety
+				));
 			if (!invalidPairs.isEmpty()) {
 				throw new IllegalArgumentException("Invalid argument value(s): " +
 					invalidPairs.entrySet().stream()

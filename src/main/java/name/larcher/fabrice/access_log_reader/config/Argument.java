@@ -7,8 +7,6 @@ package name.larcher.fabrice.access_log_reader.config;
 
 import java.nio.file.*;
 import java.time.format.DateTimeFormatter;
-import java.time.temporal.TemporalField;
-import java.util.Set;
 
 /**
  * Configuration argument for the program.
@@ -24,7 +22,9 @@ public enum Argument {
 
 		@Override
 		boolean isValid(String value) {
-			return canRead(value);
+			// We check only that the path is well-formed
+			// If the files does not exist, then it is ignored and no other configuration will be loaded
+			return getPath(value) != null;
 		}
 	},
 
@@ -83,13 +83,7 @@ public enum Argument {
 			try {
 				DateTimeFormatter formatter = DateTimeFormatter.ofPattern(value);
 				// We need both the date and the time
-				Set<TemporalField> resolverFields = formatter.getResolverFields();
-				if (resolverFields.stream().noneMatch(TemporalField::isDateBased)) {
-					return false;
-				}
-				if (resolverFields.stream().noneMatch(TemporalField::isTimeBased)) {
-					return false;
-				}
+				// TODO: check that the format includes the whole date-time information
 				return true;
 			}
 			catch (@SuppressWarnings("unused") IllegalArgumentException e) {
@@ -105,13 +99,17 @@ public enum Argument {
 		return System.getProperty("java.io.tmpdir");
 	}
 
-	private static boolean canRead(String filePath) {
+	private static Path getPath(String filePath) {
 		try {
-			Path path = Paths.get(filePath);
-			return Files.isRegularFile(path) && Files.isReadable(path);
+			return Paths.get(filePath);
 		} catch (@SuppressWarnings("unused") InvalidPathException ipe) {
-			return false;
+			return null;
 		}
+	}
+
+	private static boolean canRead(String filePath) {
+		Path path = getPath(filePath);
+		return path != null && Files.isRegularFile(path) && Files.isReadable(path);
 	}
 
 	private static boolean isPositiveLong(String longStr) {

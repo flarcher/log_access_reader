@@ -26,7 +26,7 @@ public class Main {
 		Configuration configuration = new Configuration(args);
 
 		// Initializing tasks and listeners
-
+		// TODO: Implement stats/alerts
 		AccessLogReader reader = new AccessLogReader(
 				Collections.singletonList(line -> System.out.println("hit")),
 				new AccessLogParser(configuration.getArgument(Argument.DATE_TIME_FORMAT)),
@@ -35,7 +35,9 @@ public class Main {
 
 		// Starting the engine...
 		Thread.UncaughtExceptionHandler ueh = (Thread t, Throwable e) -> {
-			// TODO
+			// TODO: use some logging
+			System.err.println("Error from thread " + t.getName() + ": " + e.getMessage());
+			e.printStackTrace(System.err);
 		};
 		ExecutorService executorService = Executors.newSingleThreadExecutor(r -> {
 				Thread t = new Thread(r);
@@ -52,29 +54,25 @@ public class Main {
 		catch (InterruptedException e) {
 			reader.requestStop();
 			awaitTermination(executorService, false);
-
 		} catch (Throwable t) {
 			// Robustness
 			reader.requestStop();
+			t.printStackTrace(System.err); // TODO: use some logging
 			awaitTermination(executorService, true);
 		}
 	}
 
 	private static void awaitTermination(ExecutorService executorService, boolean force) {
-		if (   executorService.isTerminated()
-		   || (executorService.isShutdown() && !force)) {
-			return;
-		}
-		else if (force) {
-			executorService.shutdownNow();
-		}
-		else {
-			try {
-				executorService.shutdown();
-				executorService.awaitTermination(3, TimeUnit.SECONDS);
-			}
-			catch (InterruptedException e) {
+		if (!executorService.isTerminated()) {
+			if (executorService.isShutdown() && force) {
 				executorService.shutdownNow();
+			} else {
+				try {
+					executorService.shutdown();
+					executorService.awaitTermination(3, TimeUnit.SECONDS);
+				} catch (InterruptedException e) {
+					executorService.shutdownNow();
+				}
 			}
 		}
 	}
