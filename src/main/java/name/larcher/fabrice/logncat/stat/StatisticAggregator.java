@@ -32,9 +32,13 @@ public class StatisticAggregator implements Statistic, Consumer<AccessLogLine> {
 	}
 
 	private final Comparator<ScopedStatistic> comparator;
-	private final ScopedStatisticImpl overallStats = new ScopedStatisticImpl(null);
+	private final ScopedStatisticAggregator overallStats = new ScopedStatisticAggregator(null);
+	private final ConcurrentMap<String, ScopedStatisticAggregator> statsBySection;
 
-	private final ConcurrentMap<String, ScopedStatisticImpl> statsBySection;
+	@Override
+	public Comparator<ScopedStatistic> sectionComparator() {
+		return comparator;
+	}
 
 	@Override
 	public void clear() {
@@ -49,7 +53,7 @@ public class StatisticAggregator implements Statistic, Consumer<AccessLogLine> {
 
 	@Override
 	public Collection<ScopedStatistic> topSections() {
-		Collection<ScopedStatisticImpl> values = statsBySection.values();
+		Collection<ScopedStatisticAggregator> values = statsBySection.values();
 		if (values.isEmpty()) {
 			return Collections.emptyList();
 		}
@@ -61,22 +65,45 @@ public class StatisticAggregator implements Statistic, Consumer<AccessLogLine> {
 	@Override
 	public void accept(AccessLogLine accessLogLine) {
 		overallStats.accept(accessLogLine);
-		ScopedStatisticImpl scopedStats = statsBySection.computeIfAbsent(
+		ScopedStatisticAggregator scopedStats = statsBySection.computeIfAbsent(
 				accessLogLine.getSection(),
-				ScopedStatisticImpl::new);
+				ScopedStatisticAggregator::new);
 		scopedStats.accept(accessLogLine);
 	}
 
-	@ThreadSafe
-	private static class ScopedStatisticImpl implements ScopedStatistic, Consumer<AccessLogLine> {
+	@Override
+	public void add(Statistic other) {
 
-		ScopedStatisticImpl(String section) {
+		overallStats.add(other.overall());
+
+		other.topSections().forEach( otherSectionStats -> {
+				ScopedStatisticAggregator currentStats = statsBySection.get(otherSectionStats.getSection());
+				if (currentStats == null) {
+					statsBySection.compute(otherSectionStats.getSection(), (k, v) -> {
+						if (v == null) {
+							if (otherSectionStats instanceof ScopedStatisticAggregator) {
+								return (ScopedStatisticAggregator) otherSectionStats;
+							}
+							else {
+								v = new ScopedStatisticAggregator(k);
+							}
+						}
+						v.add(otherSectionStats);
+						return v;
+					});
+				}
+			});
+	}
+
+	@ThreadSafe
+	private static class ScopedStatisticAggregator implements ScopedStatistic, Consumer<AccessLogLine> {
+
+		ScopedStatisticAggregator(String section) {
 			this.section = section;
 		}
 
 		private final String section;
 		private AtomicInteger count = new AtomicInteger(0);
-		//private MetricOverTime<Integer> throughput = new IntegerMetricOverTime();
 
 		@Nullable
 		@Override
@@ -89,14 +116,14 @@ public class StatisticAggregator implements Statistic, Consumer<AccessLogLine> {
 			return count.get();
 		}
 
-		/*@Override
-		public MetricOverTime<Integer> throughput() {
-			return null;
-		}*/
-
 		@Override
 		public void accept(AccessLogLine accessLogLine) {
 			count.incrementAndGet();
+		}
+
+		@Override
+		public void add(ScopedStatistic other) {
+			count.addAndGet(other.requestCount());
 		}
 
 		void clear() {

@@ -5,6 +5,8 @@
 
 package name.larcher.fabrice.logncat.read;
 
+import name.larcher.fabrice.logncat.TimeBound;
+
 import javax.annotation.concurrent.Immutable;
 import java.time.Instant;
 import java.util.Objects;
@@ -13,7 +15,7 @@ import java.util.Objects;
  * Holds meta data of an access log line.
  */
 @Immutable
-public class AccessLogLine {
+public class AccessLogLine implements TimeBound {
 
 	public AccessLogLine(Instant instant, String section) {
 		this.instant = instant;
@@ -29,6 +31,11 @@ public class AccessLogLine {
 
 	public String getSection() {
 		return section;
+	}
+
+	@Override
+	public long getTimeInMillis() {
+		return instant.toEpochMilli();
 	}
 
 	//-- Generated

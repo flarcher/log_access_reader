@@ -73,7 +73,6 @@ variable `LNC_LOG_FILE` and the property `log.file` are related to the same argu
 
 Use `-h` in order to get details about all available arguments.
 
-
 ## Changelogs
 
 Versions are identified by both Git tags and the POM project version. The version information is also available from 
@@ -94,14 +93,17 @@ the JAR file manifest.
 * Configuration of the date-time pattern (can be change depending on *LogFileDateExt*) through a parameter
 `DATE_TIME_FORMAT`. For now, the *LogFileDateExt* pattern can not be used, and the configuration supports only 
 patterns defined according the [Java conventions](https://docs.oracle.com/javase/8/docs/api/java/time/format/DateTimeFormatter.html#patterns).
+* With a given count of possible sections, and a given configuration, the memory consumption is intended to be stable. 
 
 ## Todo
 
+* Use a _Duration_ syntax for configuration argument instead of milliseconds counts.
 * Use a _curses_ like library for console output
 * Use a logging library like _logBack_
 * Provide metrics about the bytes count.
 * Provide stats in several periods of time like; _fromStart_, 1day, 1hour, 5min, 10sec
 * Support a better configuration file format instead of the legacy _properties format_, like YAML for example
+* Use alternative comparison for top sections (configuration based)
 * Support multiple alerts. One of them may have different periods and thresholds. It requires probably a more complex
  syntax for the configuration file.
 * Enhanced alert configuration based on metrics other than only the request throughput. It requires probably a more
@@ -117,7 +119,10 @@ access log configuration *LogTime* value is not important since we compute relat
 program would not be able to consider times before midnight from the next day. Likewise, the timezone offset should be 
    provided. If any time scope is missing, it would lead to wrong results. So we should make sure that the time is fully
   defined. It could be done when checking for the input date-time pattern.
+* Bring more robustness about inputs not coming in the chronological order? 
 * Makes possible to save/restore statistics so that a next start can retrieve the stats of a previous run.
+* Have some persistence for gathered metrics 
+* Rewrite this application in the *Rust language* in order to get better performance
 * Build a lightweight HTTP API so that client programs can easily access the metrics. The HTTP API will need to support 
 some real-time feature (like with HTTP-Streaming or Web-Socket) in order to notify alerts.
 * Create some Web-based interface that consumes the HTTP API for a better user experience

@@ -8,13 +8,13 @@ import name.larcher.fabrice.logncat.config.Argument;
 import name.larcher.fabrice.logncat.config.Configuration;
 import name.larcher.fabrice.logncat.read.AccessLogParser;
 import name.larcher.fabrice.logncat.read.AccessLogReader;
-import name.larcher.fabrice.logncat.stat.ScopedStatistic;
 import name.larcher.fabrice.logncat.stat.ScopedStatisticComparators;
+import name.larcher.fabrice.logncat.stat.Statistic;
 import name.larcher.fabrice.logncat.stat.StatisticAggregator;
+import name.larcher.fabrice.logncat.stat.StatisticTimeBuckets;
 
 import java.nio.file.Paths;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
+import java.time.Duration;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
@@ -29,18 +29,37 @@ public class Main {
 
 	public static void main(String[] args) {
 
+		// Handling the asking for help
 		List<String> arguments = Arrays.asList(args);
 		if (arguments.contains("-h") || arguments.contains("--help")) {
 			Printer.printHelp();
 			System.exit(0);
+			return;
 		}
 
 		// Read the configuration
-		Configuration configuration = new Configuration(arguments);
+		Configuration configuration;
+		try {
+			configuration = new Configuration(arguments);
+		} catch (IllegalArgumentException e) {
+			badConfiguration(e.getMessage());
+			System.exit(1);
+			return;
+		}
+
+		// Configuration checks
+		long mainIdleMillis = Long.valueOf(configuration.getArgument(Argument.MAIN_IDLE_MILLIS));
+		long statsRefreshPeriodMillis = Long.valueOf(configuration.getArgument(Argument.STATISTICS_LATEST_DURATION_MILLIS));
+		if (statsRefreshPeriodMillis < mainIdleMillis) {
+			badConfiguration("The latest statistics duration " + statsRefreshPeriodMillis
+					+ " must be greater than the main loop idle duration " + mainIdleMillis);
+			System.exit(1);
+			return;
+		}
 
 		// Initializing tasks and listeners
 		int topSectionCount = Integer.parseInt(configuration.getArgument(Argument.TOP_SECTION_COUNT));
-		Comparator<ScopedStatistic> statsComparator = ScopedStatisticComparators.BY_REQUEST_COUNT;
+		Comparator<Statistic.ScopedStatistic> statsComparator = ScopedStatisticComparators.COMPARATOR_BY_REQUEST_COUNT;
 		StatisticAggregator overallStats = new StatisticAggregator(statsComparator);
 		StatisticAggregator recentStats = new StatisticAggregator(statsComparator);
 
@@ -52,9 +71,12 @@ public class Main {
 				Paths.get(configuration.getArgument(Argument.ACCESS_LOG_FILE_LOCATION)),
 				Long.valueOf(configuration.getArgument(Argument.READ_IDLE_MILLIS)));
 
+		//TimeBuckets<Statistic> bucketsForLatestStats =
+		StatisticTimeBuckets bucketsForLatestStats = new StatisticTimeBuckets(
+						statsComparator,
+				Duration.ofMillis(mainIdleMillis));
+
 		// Starting the engine...
-		long mainIdleMillis = Long.valueOf(configuration.getArgument(Argument.MAIN_IDLE_MILLIS));
-		long statsRefreshPeriodMillis = Long.valueOf(configuration.getArgument(Argument.STATISTICS_REFRESH_PERIOD_MILLIS));
 		Thread.UncaughtExceptionHandler ueh = (Thread t, Throwable e) -> {
 			// TODO: use some logging
 			System.err.println("Error from thread " + t.getName() + ": " + e.getMessage());
@@ -71,14 +93,16 @@ public class Main {
 			long waitedMillis = 0;
 			while(true) {
 				Thread.sleep(mainIdleMillis);
+				/*bucketsForLatestStats.addTimeBucket(); // TODO
 				waitedMillis += mainIdleMillis;
-				if (waitedMillis > statsRefreshPeriodMillis) {
+				if (waitedMillis > statsDisplayPeriodMillis) {
+					Statistic reducedStats = bucketsForLatestStats.reduceTimeBuckets();// TODO
 					String date = DateTimeFormatter.ISO_DATE_TIME.format(LocalDateTime.now());
 					Printer.printStats(overallStats, date, -1L, topSectionCount);
 					Printer.printStats(recentStats, date, statsRefreshPeriodMillis, topSectionCount);
 					recentStats.clear();
 					waitedMillis = 0;
-				}
+				}*/
 			}
 		}
 		catch (InterruptedException e) {
@@ -90,6 +114,12 @@ public class Main {
 			t.printStackTrace(System.err); // TODO: use some logging
 			awaitTermination(executorService, true);
 		}
+	}
+
+	private static void badConfiguration(String reason) {
+		// TODO: use some logging
+		System.err.println("Bad configuration: " + reason);
+		System.exit(1);
 	}
 
 	private static void awaitTermination(ExecutorService executorService, boolean force) {

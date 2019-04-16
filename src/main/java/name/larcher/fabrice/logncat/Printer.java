@@ -6,7 +6,7 @@
 package name.larcher.fabrice.logncat;
 
 import name.larcher.fabrice.logncat.config.Argument;
-import name.larcher.fabrice.logncat.stat.ScopedStatistic;
+import name.larcher.fabrice.logncat.stat.Statistic.ScopedStatistic;
 import name.larcher.fabrice.logncat.stat.Statistic;
 
 import java.io.PrintStream;

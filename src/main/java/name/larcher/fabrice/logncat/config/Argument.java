@@ -44,7 +44,7 @@ public enum Argument {
 		}
 	},
 
-	READ_IDLE_MILLIS("READ_IDLE_TIME", 'w',
+	READ_IDLE_MILLIS("READ_IDLE_MS", 'w',
 			"Maximum idle time in milliseconds in the access log reading loop") {
 
 		@Override
@@ -58,7 +58,7 @@ public enum Argument {
 		}
 	},
 
-	MAIN_IDLE_MILLIS("MAIN_IDLE_TIME", 'm',
+	MAIN_IDLE_MILLIS("MAIN_IDLE_MS", 'm',
 			"Maximum idle time in milliseconds in main program loop") {
 
 		@Override
@@ -113,7 +113,7 @@ public enum Argument {
 		}
 	},
 
-	STATISTICS_REFRESH_PERIOD_MILLIS("STATS_PERIOD", 'p',
+	STATISTICS_LATEST_DURATION_MILLIS("STATS_DURATION_MS", 'p',
 			"Statistics refresh period in millis") {
 
 		@Override
