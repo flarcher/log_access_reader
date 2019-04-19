@@ -5,6 +5,7 @@
 
 package name.larcher.fabrice.logncat.config;
 
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 import java.io.BufferedReader;
@@ -183,6 +184,7 @@ public final class Configuration {
 
 	private final Map<Argument, String> argumentMap;
 
+	@Nonnull
 	public String getArgument(Argument argument) {
 		return argumentMap.get(argument);
 	}

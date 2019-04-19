@@ -17,17 +17,11 @@ import name.larcher.fabrice.logncat.stat.StatisticTimeBucketsFactory;
 
 import java.nio.file.Paths;
 import java.time.Duration;
-import java.time.Instant;
-import java.time.LocalDateTime;
-import java.time.ZoneId;
-import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 
 /**
  * Program entry point.
@@ -95,47 +89,22 @@ public class Main {
 				Paths.get(configuration.getArgument(Argument.ACCESS_LOG_FILE_LOCATION)),
 				DurationConverter.fromString(configuration.getArgument(Argument.READ_IDLE_DURATION)).toMillis());
 
-		List<Duration> latestStatsDurations = Collections.singletonList(latestStatsDuration);
-		ZoneId zoneId = ZoneId.systemDefault();
+		DisplayTask display = new DisplayTask(statsDisplayPeriodMillis, overallStats, buckets, latestLogLineConsumer);
+		display.setTopSectionCount(topSectionCount);
+		display.setLatestStatsDurations(Collections.singletonList(latestStatsDuration));
 
 		// TODO: Implement alerts
 
 		//--- Starting the engine...
 		Printer.printBeforeRun(displayRefreshDuration);
-		ExecutorService executorService = createExecutorService();
+		ScheduledExecutorService executorService = createExecutorService(2);
 		try {
-			executorService.submit(reader);
-
-			long waitedMillis = 0;
-			while(true) { // Main loop
-				Thread.sleep(mainIdleMillis);
-				waitedMillis += mainIdleMillis;
-				if (waitedMillis > statsDisplayPeriodMillis) {
-
-					AccessLogLine latestLogLine = latestLogLineConsumer.getLatest();
-					if (latestLogLine != null) { // Can be null without traffic
-
-						Instant instant = latestLogLine.getInstant();
-						String date = DateTimeFormatter.ISO_DATE_TIME.format(LocalDateTime.ofInstant(instant, zoneId));
-
-						Printer.printStats(overallStats, date, null, topSectionCount);
-
-						List<? extends Statistic> latestStatisticsList = buckets.reduceLatest(instant.toEpochMilli(), latestStatsDurations);
-						for (int i = 0; i < latestStatsDurations.size(); i++) {
-							Duration duration = latestStatsDurations.get(i);
-							Statistic stats = latestStatisticsList.get(i);
-							Printer.printStats(stats, date, duration, topSectionCount);
-						}
-
-						// TODO: test
-					}
-					else {
-						Printer.noLine();
-					}
-
-					waitedMillis = 0;
-				}
-			}
+			executorService.scheduleWithFixedDelay(display, statsDisplayPeriodMillis, statsDisplayPeriodMillis, TimeUnit.MILLISECONDS);
+			executorService.submit(reader).get(); // Does not return until any interrupt request
+		}
+		catch (ExecutionException e) {
+			e.printStackTrace(System.err); // TODO: use some logging
+			awaitTermination(executorService);
 		}
 		catch (InterruptedException e) {
 			reader.requestStop();
@@ -143,7 +112,6 @@ public class Main {
 			awaitTermination(executorService);
 		}
 		catch (Throwable t) {
-			// Robustness
 			reader.requestStop();
 			t.printStackTrace(System.err); // TODO: use some logging
 			awaitTermination(executorService);
@@ -156,15 +124,16 @@ public class Main {
 		System.exit(1);
 	}
 
-	private static ExecutorService createExecutorService() {
+	private static ScheduledExecutorService createExecutorService(int taskCount) {
 		Thread.currentThread().setName("main");
 		Thread.UncaughtExceptionHandler ueh = (Thread t, Throwable e) -> {
 				// TODO: use some logging
 				System.err.println("Error from thread " + t.getName() + ": " + e.getMessage());
 				e.printStackTrace(System.err);
 			};
-		return Executors.newSingleThreadExecutor(r -> {
-				Thread t = new Thread(r);
+		return Executors.newScheduledThreadPool(taskCount,
+			runnable -> {
+				Thread t = new Thread(runnable);
 				t.setUncaughtExceptionHandler(ueh);
 				return t;
 			});
