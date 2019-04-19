@@ -56,18 +56,6 @@ The arguments can be provided in the following ways, ordered by priority:
 Use `-h` as an argument in order to get details about all other available arguments. It also outputs all command line
  flags, used environment variables and property names.
 
-## Changelogs
-
-Versions are identified by both Git tags and the POM project version. The version information is also available from 
-the JAR file manifest.
-
-|_Version_|_Changes_|
-|---|---|
-|0.0|Initial version|
-|1.0|Statistics sent to the standard output stream|
-|2.0|Handling of alerts sent to the standard error stream|
-|3.0|Use of curses in a terminal|
-
 ## Requirements
 
 * Consume an actively written-to w3c-formatted HTTP access log. It should default to reading /tmp/access.log and be overrideable.
@@ -116,6 +104,33 @@ The value of *LogFileDateExt* could be passed as a parameter and is meaningful s
 * Build a lightweight HTTP API so that client programs can easily access the metrics. The HTTP API will need to support some real-time feature (like with HTTP-Streaming or Web-Socket) in order to notify alerts.
 * Create some Web-based interface that consumes the HTTP API for a better user experience
 
+## Changelogs
+
+Versions are identified by both Git tags and the POM project version. The version information is also available from 
+the JAR file manifest.
+
+|_Version_|_Changes_|
+|---|---|
+|0.0|Initial version|
+|1.0|Statistics sent to the standard output stream|
+|2.0|Handling of alerts sent to the standard error stream|
+|3.0|Use of curses in a terminal|
+
+## For developers
+
+In order to increase the version using *Git* and *Maven*:
+
+```bash
+export LNC_VERSION=X.Y
+mvn versions:set "-DnewVersion=$LNC_VERSION"
+git add pom.xml
+git commit -m "Release of $LNC_VERSION"
+git push
+git tag -a "$LNC_VERSION" -m 'Put here the version comment'
+git push origin "$LNC_VERSION"
+mvn versions:set "-DnewVersion=${LNC_VERSION}-SNAPSHOT"
+```
+
 ## License
 
-Copyright 2019 - Fabrice LARCHER (All rights reserved)
+Copyright 2019 - **Fabrice LARCHER** _(All rights reserved)_
