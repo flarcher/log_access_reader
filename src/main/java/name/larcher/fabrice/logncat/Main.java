@@ -7,6 +7,8 @@ package name.larcher.fabrice.logncat;
 import name.larcher.fabrice.logncat.config.Argument;
 import name.larcher.fabrice.logncat.config.Configuration;
 import name.larcher.fabrice.logncat.config.DurationConverter;
+import name.larcher.fabrice.logncat.display.DisplayTask;
+import name.larcher.fabrice.logncat.display.Printer;
 import name.larcher.fabrice.logncat.read.AccessLogLine;
 import name.larcher.fabrice.logncat.read.AccessLogParser;
 import name.larcher.fabrice.logncat.read.AccessLogReadTask;
@@ -99,7 +101,8 @@ public class Main {
 		Printer.printBeforeRun(displayRefreshDuration);
 		ScheduledExecutorService executorService = createExecutorService(2);
 		try {
-			executorService.scheduleWithFixedDelay(display, statsDisplayPeriodMillis, statsDisplayPeriodMillis, TimeUnit.MILLISECONDS);
+			executorService.scheduleAtFixedRate(display, statsDisplayPeriodMillis,
+					statsDisplayPeriodMillis, TimeUnit.MILLISECONDS);
 			executorService.submit(reader).get(); // Does not return until any interrupt request
 		}
 		catch (ExecutionException e) {

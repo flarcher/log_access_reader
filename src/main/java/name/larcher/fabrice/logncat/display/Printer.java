@@ -3,7 +3,7 @@
  * Fabrice Larcher
  */
 
-package name.larcher.fabrice.logncat;
+package name.larcher.fabrice.logncat.display;
 
 import name.larcher.fabrice.logncat.config.Argument;
 import name.larcher.fabrice.logncat.config.DurationConverter;
@@ -15,7 +15,7 @@ import java.time.Duration;
 import java.util.*;
 import java.util.stream.Collectors;
 
-final class Printer {
+public final class Printer {
 
 	private Printer() {} // Utility class
 
@@ -23,7 +23,7 @@ final class Printer {
 		return "LOG'n-CAT \uD83D\uDC31";
 	}
 
-	static void printHelp() {
+	public static void printHelp() {
 		PrintStream printer = System.out;
 		printer.println(appName());
 		printer.println(" Prints statistics and notifies alerts by reading access log files.");
@@ -49,7 +49,7 @@ final class Printer {
 				});
 	}
 
-	static void printBeforeRun(Duration refreshPeriodMillis) {
+	public static void printBeforeRun(Duration refreshPeriodMillis) {
 		PrintStream printer = System.out;
 		printer.println("You started " + appName());
 		printer.println("Stats will be printed each " + DurationConverter.toString(refreshPeriodMillis));

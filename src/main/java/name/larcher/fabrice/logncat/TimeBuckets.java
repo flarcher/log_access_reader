@@ -27,8 +27,11 @@ import java.util.stream.IntStream;
  *           {@link name.larcher.fabrice.logncat.stat.Statistic} for example.
  */
 @ThreadSafe
-public class TimeBuckets<T extends TimeBound, A extends Consumer<T> & AutoCloseable>
-	implements Consumer<T> {
+public class TimeBuckets<
+			T extends TimeBound,
+			A extends Consumer<T> & AutoCloseable
+		>
+		implements Consumer<T> {
 
 	/**
 	 * @param reducer        Same idiom as for {@link java.util.stream.Stream#reduce(Object, BinaryOperator)}. The

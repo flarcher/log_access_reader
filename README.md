@@ -58,9 +58,9 @@ Use `-h` as an argument in order to get details about all other available argume
 
 ## Requirements
 
-* Consume an actively written-to w3c-formatted HTTP access log. It should default to reading /tmp/access.log and be overrideable.
-* Display stats every 10s about the traffic during those 10s: the sections of the web site with the most hits, as well as interesting summary statistics on the traffic as a whole. A section is defined as being what's before the second '/' in the resource section of the log line. For example, the section for "/pages/create" is "/pages"
-* Make sure a user can keep the app running and monitor the log file continuously
+* Consume an actively written-to w3c-formatted HTTP access log. It should default to reading /tmp/access.log and be overrideable.  ✓
+* Display stats every 10s about the traffic during those 10s: the sections of the web site with the most hits, as well as interesting summary statistics on the traffic as a whole. A section is defined as being what's before the second '/' in the resource section of the log line. For example, the section for "/pages/create" is "/pages" ✓
+* Make sure a user can keep the app running and monitor the log file continuously ✓
 * Whenever total traffic for the past 2 minutes exceeds a certain number on average, add a message saying that “High traffic generated an alert - hits = {value}, triggered at {time}”. The default threshold should be 10 requests per second, and should be overridable.
 * Whenever the total traffic drops again below that value on average for the past 2 minutes, add another message detailing when the alert recovered.
 * Make sure all messages showing when alerting thresholds are crossed remain visible on the page for historical reasons.
@@ -74,14 +74,18 @@ Use `-h` as an argument in order to get details about all other available argume
 * Reading of a configuration file (although in a legacy _properties_ format) whose located can be given as an argument.
 * Configuration of the date-time pattern through a parameter `DATE_TIME_FORMAT`. For now, the *LogFileDateExt* access log configuration value can not be used, and the configuration supports only patterns defined according the [Java conventions](https://docs.oracle.com/javase/8/docs/api/java/time/format/DateTimeFormatter.html#patterns).
 But the value can still be changed depending on *LogFileDateExt* value.
-* Use a _Duration_ syntax for configuration argument instead of milliseconds counts. Duration information in configuration entries can have values like `23m` (for 23 minutes) or `1m30s` (for one minute and 30 seconds).  
+* Use a _Duration_ syntax for configuration argument instead of milliseconds counts. Duration information in configuration entries can have values like `23m` (for 23 minutes) or `1m30s` (for one minute and 30 seconds).
+* Display stats at a configurable rate for the latest metrics of a greater period of time. By default, we print  each second the statistics about the last 10 seconds.
+*    
 
 ## Technical remarks
 
 * There is a robustness/support related to timezone changes (because the timezone offset is read while parsing)
+* There is a simple thread-model (reader, main, display)
 * It uses aggregation of information in order to reduce memory usage and memory allocation. The gathered information related to a single access log (class `AccessLogLine`) has only a short-term live in the application. The `AccessLogLine` instances are not stored in any collection but are aggregated as soon as possible in classes implementing `Consumer<AccessLogLine>` being `StaticticAggregator` and `TimeBuckets`. These classes aggregate access log information and each instance is related to a whole range of time.
 * With a given configuration, the memory consumption is intended to be stable over time. The 2-step aggregations (the first step running over the main idle time, then a second iterating for displayed statistics and alerts over 10 seconds by default) make sure to remove the oldest information (typically being more than 10s old with default configuration)
 * A limit about memory use can be configured. A possibly size-growing collection is related to the count of sections in statistics. A huge number of different sections in access log files can increase the memory consumption significantly. In order to address this, the arguments `MAX_SECTION_COUNT_RATIO` and `TOP_SECTION_COUNT` define a maximum count of sections held in memory, so that we can cap the memory consumption according to the gathering of _top sections statistics_.  The lower is the `MAX_SECTION_COUNT_RATIO` value, the bigger is the risk to miss some information related to the _top sections parts_ (however global statistics will stay true in all cases). About (only) the _top sections_ dislpay , the trade-off between precision/correctness and memory consumption explains the reason why the `MAX_SECTION_COUNT_RATIO` exists.
+* The metrics aggregation mechanism is shared by the statistics display mechanism and the alerting
 
 ## Next steps
 

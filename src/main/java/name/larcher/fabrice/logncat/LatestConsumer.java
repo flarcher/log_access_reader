@@ -9,12 +9,13 @@ import javax.annotation.concurrent.ThreadSafe;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BinaryOperator;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 
 /**
  * Stores the latest entry.
  */
 @ThreadSafe
-public class LatestConsumer<T extends TimeBound> implements Consumer<T> {
+class LatestConsumer<T extends TimeBound> implements Consumer<T>, Supplier<T> {
 
 	private final AtomicReference<T> reference = new AtomicReference<>();
 
@@ -30,7 +31,8 @@ public class LatestConsumer<T extends TimeBound> implements Consumer<T> {
 		reference.accumulateAndGet(t, accumulator);
 	}
 
-	public T getLatest() {
+	@Override
+	public T get() {
 		return reference.get();
 	}
 }
