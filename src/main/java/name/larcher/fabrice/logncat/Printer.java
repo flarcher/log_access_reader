@@ -6,28 +6,26 @@
 package name.larcher.fabrice.logncat;
 
 import name.larcher.fabrice.logncat.config.Argument;
+import name.larcher.fabrice.logncat.config.DurationConverter;
 import name.larcher.fabrice.logncat.stat.Statistic.ScopedStatistic;
 import name.larcher.fabrice.logncat.stat.Statistic;
 
 import java.io.PrintStream;
 import java.time.Duration;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Comparator;
-import java.util.List;
+import java.util.*;
 import java.util.stream.Collectors;
 
 final class Printer {
 
 	private Printer() {} // Utility class
 
-	static String toString(Duration duration) {
-		return duration.toString().substring(2).toLowerCase();
+	private static String appName() {
+		return "LOG'n-CAT \uD83D\uDC31";
 	}
 
 	static void printHelp() {
 		PrintStream printer = System.out;
-		printer.println("LOG'n CAT \uD83D\uDC31");
+		printer.println(appName());
 		printer.println(" Prints statistics and notifies alerts by reading access log files.");
 		printer.println();
 		printer.println("Possible arguments are:");
@@ -51,37 +49,30 @@ final class Printer {
 				});
 	}
 
-	static void printBeforeRun(long refreshPeriodMillis) {
+	static void printBeforeRun(Duration refreshPeriodMillis) {
 		PrintStream printer = System.out;
-		printer.println("Stats will be printed each " + toString(Duration.ofMillis(refreshPeriodMillis)));
+		printer.println("You started " + appName());
+		printer.println("Stats will be printed each " + DurationConverter.toString(refreshPeriodMillis));
 		printer.println("You can quit using <^C> (or sending a kill signal)");
 	}
 
-	static void printStats(Statistic stats, String date, long periodInMillis, int topSectionsCount) {
+	static void printStats(Statistic stats, String date, Duration period, int topSectionsCount) {
 
 		PrintStream printer = System.out;
 		printer.print("[" + date + "] ");
-		String prefix = periodInMillis <= 0
-				? "Overall"
-				: "In last " + toString(Duration.ofMillis(periodInMillis));
+		String prefix = period == null ? "Overall" : ("In last " + DurationConverter.toString(period));
 		printer.print(prefix);
 		printer.print(" | ");
 		printer.print(scopedStatsToString(stats.overall()));
 		printer.print(" | ");
 		if (topSectionsCount > 0) {
-			List<ScopedStatistic> topSectionsStats = new ArrayList<>(topSectionsCount);
-			int sectionCount = 0;
-			for (ScopedStatistic sectionStats : stats.topSections()) {
-				topSectionsStats.add(sectionStats);
-				sectionCount++;
-				if (sectionCount > topSectionsCount) {
-					break;
-				}
-			}
+			List<Map.Entry<String, ? extends ScopedStatistic>> topSectionsStats = stats.topSections();
+			int sectionCount = Math.min(topSectionsStats.size(), topSectionsCount);
+			topSectionsStats = topSectionsStats.subList(0, sectionCount);
 			printer.print(topSectionsStats.stream()
 					.map(sectionStat ->
-							"{ section: " + sectionStat.getSection()
-							+ ", " + scopedStatsToString(sectionStat) + " }")
+							"{ section: " + sectionStat.getKey()
+							+ ", " + scopedStatsToString(sectionStat.getValue()) + " }")
 					.collect(Collectors.joining(", ", "[", "]")));
 		}
 		printer.println();
@@ -91,4 +82,7 @@ final class Printer {
 		return "count: " + scopedStats.requestCount();
 	}
 
+	static void noLine() {
+		System.out.println("No line");
+	}
 }

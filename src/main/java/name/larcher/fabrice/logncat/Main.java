@@ -6,16 +6,23 @@ package name.larcher.fabrice.logncat;
 
 import name.larcher.fabrice.logncat.config.Argument;
 import name.larcher.fabrice.logncat.config.Configuration;
+import name.larcher.fabrice.logncat.config.DurationConverter;
+import name.larcher.fabrice.logncat.read.AccessLogLine;
 import name.larcher.fabrice.logncat.read.AccessLogParser;
-import name.larcher.fabrice.logncat.read.AccessLogReader;
+import name.larcher.fabrice.logncat.read.AccessLogReadTask;
 import name.larcher.fabrice.logncat.stat.ScopedStatisticComparators;
 import name.larcher.fabrice.logncat.stat.Statistic;
 import name.larcher.fabrice.logncat.stat.StatisticAggregator;
-import name.larcher.fabrice.logncat.stat.StatisticTimeBuckets;
+import name.larcher.fabrice.logncat.stat.StatisticTimeBucketsFactory;
 
 import java.nio.file.Paths;
 import java.time.Duration;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
@@ -29,15 +36,15 @@ public class Main {
 
 	public static void main(String[] args) {
 
-		// Handling the asking for help
+		//--- Asking for help?
 		List<String> arguments = Arrays.asList(args);
-		if (arguments.contains("-h") || arguments.contains("--help")) {
+		if (arguments.contains("-h")) {
 			Printer.printHelp();
 			System.exit(0);
 			return;
 		}
 
-		// Read the configuration
+		//--- Configuration read & checks
 		Configuration configuration;
 		try {
 			configuration = new Configuration(arguments);
@@ -47,9 +54,13 @@ public class Main {
 			return;
 		}
 
-		// Configuration checks
-		long mainIdleMillis = Long.valueOf(configuration.getArgument(Argument.MAIN_IDLE_MILLIS));
-		long statsRefreshPeriodMillis = Long.valueOf(configuration.getArgument(Argument.STATISTICS_LATEST_DURATION_MILLIS));
+		Duration mainIdle = DurationConverter.fromString(
+				configuration.getArgument(Argument.MAIN_IDLE_DURATION));
+		long mainIdleMillis = mainIdle.toMillis();
+
+		Duration latestStatsDuration = DurationConverter.fromString(
+				configuration.getArgument(Argument.STATISTICS_LATEST_DURATION));
+		long statsRefreshPeriodMillis = latestStatsDuration.toMillis();
 		if (statsRefreshPeriodMillis < mainIdleMillis) {
 			badConfiguration("The latest statistics duration " + statsRefreshPeriodMillis
 					+ " must be greater than the main loop idle duration " + mainIdleMillis);
@@ -57,62 +68,85 @@ public class Main {
 			return;
 		}
 
-		// Initializing tasks and listeners
+		Duration displayRefreshDuration = DurationConverter.fromString(
+				configuration.getArgument(Argument.DISPLAY_PERIOD));
+		long statsDisplayPeriodMillis = displayRefreshDuration.toMillis();
+		if (statsDisplayPeriodMillis < mainIdleMillis) {
+			badConfiguration("The display refresh period " + statsDisplayPeriodMillis
+					+ " must be greater than the main loop idle duration " + mainIdleMillis);
+			System.exit(1);
+			return;
+		}
+
 		int topSectionCount = Integer.parseInt(configuration.getArgument(Argument.TOP_SECTION_COUNT));
+		int maxSectionCountRatio = Integer.parseInt(configuration.getArgument(Argument.MAX_SECTION_COUNT_RATIO));
+		int maxSectionCount = topSectionCount * maxSectionCountRatio;
+
+		//--- Initializing of tasks and listeners
 		Comparator<Statistic.ScopedStatistic> statsComparator = ScopedStatisticComparators.COMPARATOR_BY_REQUEST_COUNT;
-		StatisticAggregator overallStats = new StatisticAggregator(statsComparator);
-		StatisticAggregator recentStats = new StatisticAggregator(statsComparator);
+
+		LatestConsumer<AccessLogLine> latestLogLineConsumer = new LatestConsumer<>();
+		StatisticAggregator overallStats = new StatisticAggregator(statsComparator, maxSectionCount);
+		StatisticTimeBucketsFactory.StatisticTimeBuckets buckets = StatisticTimeBucketsFactory.create(statsComparator, mainIdle, maxSectionCount);
+
+		AccessLogReadTask reader = new AccessLogReadTask(
+				Arrays.asList(overallStats, buckets, latestLogLineConsumer),
+				new AccessLogParser(configuration.getArgument(Argument.DATE_TIME_FORMAT)),
+				Paths.get(configuration.getArgument(Argument.ACCESS_LOG_FILE_LOCATION)),
+				DurationConverter.fromString(configuration.getArgument(Argument.READ_IDLE_DURATION)).toMillis());
+
+		List<Duration> latestStatsDurations = Collections.singletonList(latestStatsDuration);
+		ZoneId zoneId = ZoneId.systemDefault();
 
 		// TODO: Implement alerts
 
-		AccessLogReader reader = new AccessLogReader(
-				Arrays.asList(overallStats, recentStats),
-				new AccessLogParser(configuration.getArgument(Argument.DATE_TIME_FORMAT)),
-				Paths.get(configuration.getArgument(Argument.ACCESS_LOG_FILE_LOCATION)),
-				Long.valueOf(configuration.getArgument(Argument.READ_IDLE_MILLIS)));
-
-		//TimeBuckets<Statistic> bucketsForLatestStats =
-		StatisticTimeBuckets bucketsForLatestStats = new StatisticTimeBuckets(
-						statsComparator,
-				Duration.ofMillis(mainIdleMillis));
-
-		// Starting the engine...
-		Thread.UncaughtExceptionHandler ueh = (Thread t, Throwable e) -> {
-			// TODO: use some logging
-			System.err.println("Error from thread " + t.getName() + ": " + e.getMessage());
-			e.printStackTrace(System.err);
-		};
-		ExecutorService executorService = Executors.newSingleThreadExecutor(r -> {
-				Thread t = new Thread(r);
-				t.setUncaughtExceptionHandler(ueh);
-				return t;
-			});
+		//--- Starting the engine...
+		Printer.printBeforeRun(displayRefreshDuration);
+		ExecutorService executorService = createExecutorService();
 		try {
-			Printer.printBeforeRun(statsRefreshPeriodMillis);
 			executorService.submit(reader);
+
 			long waitedMillis = 0;
-			while(true) {
+			while(true) { // Main loop
 				Thread.sleep(mainIdleMillis);
-				/*bucketsForLatestStats.addTimeBucket(); // TODO
 				waitedMillis += mainIdleMillis;
 				if (waitedMillis > statsDisplayPeriodMillis) {
-					Statistic reducedStats = bucketsForLatestStats.reduceTimeBuckets();// TODO
-					String date = DateTimeFormatter.ISO_DATE_TIME.format(LocalDateTime.now());
-					Printer.printStats(overallStats, date, -1L, topSectionCount);
-					Printer.printStats(recentStats, date, statsRefreshPeriodMillis, topSectionCount);
-					recentStats.clear();
+
+					AccessLogLine latestLogLine = latestLogLineConsumer.getLatest();
+					if (latestLogLine != null) { // Can be null without traffic
+
+						Instant instant = latestLogLine.getInstant();
+						String date = DateTimeFormatter.ISO_DATE_TIME.format(LocalDateTime.ofInstant(instant, zoneId));
+
+						Printer.printStats(overallStats, date, null, topSectionCount);
+
+						List<? extends Statistic> latestStatisticsList = buckets.reduceLatest(instant.toEpochMilli(), latestStatsDurations);
+						for (int i = 0; i < latestStatsDurations.size(); i++) {
+							Duration duration = latestStatsDurations.get(i);
+							Statistic stats = latestStatisticsList.get(i);
+							Printer.printStats(stats, date, duration, topSectionCount);
+						}
+
+						// TODO: test
+					}
+					else {
+						Printer.noLine();
+					}
+
 					waitedMillis = 0;
-				}*/
+				}
 			}
 		}
 		catch (InterruptedException e) {
 			reader.requestStop();
-			awaitTermination(executorService, false);
-		} catch (Throwable t) {
+			Thread.currentThread().interrupt();
+			awaitTermination(executorService);
+		}
+		catch (Throwable t) {
 			// Robustness
 			reader.requestStop();
 			t.printStackTrace(System.err); // TODO: use some logging
-			awaitTermination(executorService, true);
+			awaitTermination(executorService);
 		}
 	}
 
@@ -122,17 +156,27 @@ public class Main {
 		System.exit(1);
 	}
 
-	private static void awaitTermination(ExecutorService executorService, boolean force) {
+	private static ExecutorService createExecutorService() {
+		Thread.currentThread().setName("main");
+		Thread.UncaughtExceptionHandler ueh = (Thread t, Throwable e) -> {
+				// TODO: use some logging
+				System.err.println("Error from thread " + t.getName() + ": " + e.getMessage());
+				e.printStackTrace(System.err);
+			};
+		return Executors.newSingleThreadExecutor(r -> {
+				Thread t = new Thread(r);
+				t.setUncaughtExceptionHandler(ueh);
+				return t;
+			});
+	}
+
+	private static void awaitTermination(ExecutorService executorService) {
 		if (!executorService.isTerminated()) {
-			if (executorService.isShutdown() && force) {
+			try {
+				executorService.shutdown();
+				executorService.awaitTermination(3, TimeUnit.SECONDS);
+			} catch (@SuppressWarnings("unsused") InterruptedException e) {
 				executorService.shutdownNow();
-			} else {
-				try {
-					executorService.shutdown();
-					executorService.awaitTermination(3, TimeUnit.SECONDS);
-				} catch (InterruptedException e) {
-					executorService.shutdownNow();
-				}
 			}
 		}
 	}

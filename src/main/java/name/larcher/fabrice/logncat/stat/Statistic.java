@@ -5,25 +5,39 @@
 
 package name.larcher.fabrice.logncat.stat;
 
-import javax.annotation.Nullable;
-import java.util.Collection;
 import java.util.Comparator;
+import java.util.List;
+import java.util.Map;
 
 /**
  * Statistics aggregated over time about access logs.
  */
-public interface Statistic {
+public interface Statistic extends AutoCloseable {
 
 	ScopedStatistic overall();
 
-	Collection<ScopedStatistic> topSections();
-
-	void clear();
-
+	/**
+	 * @return The comparator for section top ordering.
+	 */
 	Comparator<ScopedStatistic> sectionComparator();
 
 	/**
-	 * @return false if not implemented
+	 * @return Sorted list (according to {@link #sectionComparator()}) of section statistics.
+	 */
+	List<Map.Entry<String, ? extends ScopedStatistic>> topSections();
+
+	/**
+	 * Resets the stats.
+	 */
+	void clear();
+
+	@Override
+	default void close() {
+		clear();
+	}
+
+	/**
+	 * Aggregates statistics of another instance.
 	 */
 	void add(Statistic other);
 
@@ -32,18 +46,10 @@ public interface Statistic {
 	 */
 	interface ScopedStatistic {
 
-		/**
-		 * @return The section of {@code null} if the scope is global.
-		 */
-		@Nullable
-		default String getSection() {
-			return null;
-		}
-
 		int requestCount();
 
 		/**
-		 * @return false if not implemented
+		 * Aggregates statistics of another instance.
 		 */
 		void add(ScopedStatistic other);
 

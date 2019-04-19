@@ -19,7 +19,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 
-public class AccessLogReaderTest {
+public class AccessLogReadTaskTest {
 
 	private static final Path TEST_LOG_FILE_PATH = TestUtils.getTestResourcePath("access.log");
 	private static final int TEST_LOG_FILE_LINE_COUNT = 4;
@@ -28,7 +28,7 @@ public class AccessLogReaderTest {
 	@Test
 	public void canReadExample() {
 		CountDownLatch countDownLatch = new CountDownLatch(TEST_LOG_FILE_LINE_COUNT);
-		AccessLogReader reader = new AccessLogReader(
+		AccessLogReadTask reader = new AccessLogReadTask(
 				Collections.singletonList(line -> countDownLatch.countDown()),
 				PARSER,
 				TEST_LOG_FILE_PATH,
@@ -59,7 +59,7 @@ public class AccessLogReaderTest {
 		ExecutorService executorService = Executors.newSingleThreadExecutor();
 		AtomicInteger counter = new AtomicInteger(0);
 		long idleWaitMillis = 100L;
-		AccessLogReader reader = new AccessLogReader(
+		AccessLogReadTask reader = new AccessLogReadTask(
 				Collections.singletonList(line -> {
 					if (counter.getAndIncrement() > 0) {
 						// The current thread is the reader's thread

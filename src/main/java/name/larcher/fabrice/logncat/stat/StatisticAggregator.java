@@ -7,7 +7,6 @@ package name.larcher.fabrice.logncat.stat;
 
 import name.larcher.fabrice.logncat.read.AccessLogLine;
 
-import javax.annotation.Nullable;
 import javax.annotation.concurrent.ThreadSafe;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -17,23 +16,32 @@ import java.util.function.Consumer;
 
 /**
  * Statistics gathering from access log lines.
+ * Is listening to log line from one thread and returning results to another.
  */
+@ThreadSafe
 public class StatisticAggregator implements Statistic, Consumer<AccessLogLine> {
 
 	/**
 	 * @param comparator A comparator for sorting stats.
 	 */
-	public StatisticAggregator(Comparator<ScopedStatistic> comparator) {
+	public StatisticAggregator(Comparator<ScopedStatistic> comparator, int maxSectionCount) {
 		this.comparator = Objects.requireNonNull(comparator);
 
 		// The map will be called from the rendering thread, so it should be concurrent
-		// On the other side, it should not be sorted since values are updated after add
+		// It has not to be sorted since values are updated after add
 		this.statsBySection = new ConcurrentHashMap<>();
+		// Robustness about memory consumption
+		this.maxSectionCount = maxSectionCount;
 	}
 
 	private final Comparator<ScopedStatistic> comparator;
-	private final ScopedStatisticAggregator overallStats = new ScopedStatisticAggregator(null);
+	private final ScopedStatisticAggregator overallStats = new ScopedStatisticAggregator();
 	private final ConcurrentMap<String, ScopedStatisticAggregator> statsBySection;
+	private final int maxSectionCount;
+
+	int getMaxSectionCount() {
+		return maxSectionCount;
+	}
 
 	@Override
 	public Comparator<ScopedStatistic> sectionComparator() {
@@ -52,23 +60,47 @@ public class StatisticAggregator implements Statistic, Consumer<AccessLogLine> {
 	}
 
 	@Override
-	public Collection<ScopedStatistic> topSections() {
+	public List<Map.Entry<String, ? extends ScopedStatistic>> topSections() {
 		Collection<ScopedStatisticAggregator> values = statsBySection.values();
 		if (values.isEmpty()) {
 			return Collections.emptyList();
 		}
-		PriorityQueue<ScopedStatistic> queue = new PriorityQueue<>(values.size(), comparator);
-		queue.addAll(values);
-		return queue;
+		Set<Map.Entry<String, ScopedStatisticAggregator>> entries = statsBySection.entrySet();
+		List<Map.Entry<String, ? extends ScopedStatistic>> list = new ArrayList<>(entries.size());
+		list.addAll(entries);
+		list.sort(Comparator.comparing(Map.Entry::getValue, comparator));
+		return list;
+	}
+
+	private static void warnAboutSectionSkipping(String section) {
+		// TODO: warn once about not being able to store a new section information
+		System.err.println("Skipped section " + section + " in order to limit memory usage");
 	}
 
 	@Override
 	public void accept(AccessLogLine accessLogLine) {
+
 		overallStats.accept(accessLogLine);
-		ScopedStatisticAggregator scopedStats = statsBySection.computeIfAbsent(
-				accessLogLine.getSection(),
-				ScopedStatisticAggregator::new);
-		scopedStats.accept(accessLogLine);
+
+		String section = accessLogLine.getSection();
+		if (statsBySection.size() >= maxSectionCount) {
+			ScopedStatisticAggregator scopedStats = statsBySection.get(section);
+			if (scopedStats != null) {
+				scopedStats.accept(accessLogLine);
+			}
+			else {
+				warnAboutSectionSkipping(section);
+			}
+		}
+		else {
+			statsBySection.compute(section, (k, v) -> {
+				if (v == null) {
+					v = new ScopedStatisticAggregator();
+				}
+				v.accept(accessLogLine);
+				return v;
+			});
+		}
 	}
 
 	@Override
@@ -76,40 +108,39 @@ public class StatisticAggregator implements Statistic, Consumer<AccessLogLine> {
 
 		overallStats.add(other.overall());
 
-		other.topSections().forEach( otherSectionStats -> {
-				ScopedStatisticAggregator currentStats = statsBySection.get(otherSectionStats.getSection());
-				if (currentStats == null) {
-					statsBySection.compute(otherSectionStats.getSection(), (k, v) -> {
-						if (v == null) {
-							if (otherSectionStats instanceof ScopedStatisticAggregator) {
-								return (ScopedStatisticAggregator) otherSectionStats;
-							}
-							else {
-								v = new ScopedStatisticAggregator(k);
-							}
-						}
-						v.add(otherSectionStats);
-						return v;
-					});
+		other.topSections().forEach( otherSectionEntry -> {
+			String section = otherSectionEntry.getKey();
+			ScopedStatistic otherSectionStats = otherSectionEntry.getValue();
+			if (statsBySection.size() >= maxSectionCount) {
+				ScopedStatisticAggregator thisSectionStats = statsBySection.get(section);
+				if (thisSectionStats != null) {
+					thisSectionStats.add(otherSectionStats);
 				}
-			});
+				else {
+					warnAboutSectionSkipping(section);
+				}
+			}
+			else {
+				statsBySection.compute(section, (k, v) -> {
+					if (v == null) {
+						v = new ScopedStatisticAggregator();
+					}
+					v.add(otherSectionStats);
+					return v;
+				});
+			}
+		});
 	}
 
+	/**
+	 * Is listening to log line from one thread and returning results to another.
+	 */
 	@ThreadSafe
 	private static class ScopedStatisticAggregator implements ScopedStatistic, Consumer<AccessLogLine> {
 
-		ScopedStatisticAggregator(String section) {
-			this.section = section;
-		}
+		ScopedStatisticAggregator() {}
 
-		private final String section;
 		private AtomicInteger count = new AtomicInteger(0);
-
-		@Nullable
-		@Override
-		public String getSection() {
-			return section;
-		}
 
 		@Override
 		public int requestCount() {

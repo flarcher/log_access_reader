@@ -20,7 +20,7 @@ import java.util.function.Function;
 /**
  * Single-threaded task that reads the access log file.
  */
-public class AccessLogReader implements Runnable {
+public class AccessLogReadTask implements Runnable {
 
 	/**
 	 * @param listeners         Listeners called each time a new line has been parsed. They are called in the reader's
@@ -30,7 +30,7 @@ public class AccessLogReader implements Runnable {
 	 * @param idleWaitMillis    Minimum milliseconds count spent when waiting for new lines (only in case when the
 	 *                          reader reached the last line).
 	 */
-	public AccessLogReader(
+	public AccessLogReadTask(
 			List<Consumer<AccessLogLine>> listeners,
 			Function<String, AccessLogLine> parser,
 			Path accessLogFilePath,

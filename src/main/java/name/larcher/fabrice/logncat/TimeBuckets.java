@@ -5,47 +5,43 @@
 
 package name.larcher.fabrice.logncat;
 
-import javax.annotation.concurrent.NotThreadSafe;
+import javax.annotation.concurrent.ThreadSafe;
 import java.time.Duration;
-import java.util.Comparator;
-import java.util.Iterator;
-import java.util.Map;
-import java.util.Objects;
+import java.util.*;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.function.BinaryOperator;
 import java.util.function.Consumer;
-import java.util.function.Function;
+import java.util.function.Supplier;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 /**
  * Handles a two-steps aggregation so that we can retrieve the last metrics for a duration many times in this duration.
  *
- * Hold some guarantee some predictable memory consumption without depending on the load.
+ * Hold some guarantee about predictable memory usage without assumption about the load.
+ *
+ * Is thread-safe so that {@link #accept(TimeBound)} can be called from one thread, and the other methods from another.
  *
  * @param <T> Any type holding time-bound metrics implementing {@link TimeBound}.
  * @param <A> An aggregate of {@code <T>} over a short period of time called {@literal a time bucket}. It can be
  *           {@link name.larcher.fabrice.logncat.stat.Statistic} for example.
  */
-@NotThreadSafe
-public class TimeBuckets<T extends TimeBound, A extends Consumer<T>>
+@ThreadSafe
+public class TimeBuckets<T extends TimeBound, A extends Consumer<T> & AutoCloseable>
 	implements Consumer<T> {
 
 	/**
 	 * @param reducer        Same idiom as for {@link java.util.stream.Stream#reduce(Object, BinaryOperator)}. The
 	 *                       reducer should not care about time precedence between buckets metrics.
-	 * @param identity       Same idiom as for {@link java.util.stream.Stream#reduce(Object, BinaryOperator)}. This
-	 *                       identity instance must always be defined so that:
-	 *                       {@code reducer.apply(identity, identity).equals(identity)}. It should also never
-	 *                       change after been used as a argument of {@code reducer.apply(.,.)}.
+	 * @param factory        Creates a metric instance {@code i} so that: {@code reducer.apply(i, i).equals(i)}.
 	 * @param bucketDuration The duration of a single bucket.
 	 */
 	public TimeBuckets(
-			Function<T, A> factory,
+			Supplier<A> factory,
 			BinaryOperator<A> reducer,
-			A identity,
 			Duration bucketDuration) {
 
 		this.metricReducer = Objects.requireNonNull(reducer);
-		this.identityMetric = Objects.requireNonNull(identity);
 		this.metricFactory = Objects.requireNonNull(factory);
 		this.bucketDurationMillis = bucketDuration.toMillis();
 		if (bucketDurationMillis <= 0 ) {
@@ -56,9 +52,8 @@ public class TimeBuckets<T extends TimeBound, A extends Consumer<T>>
 			Comparator.<Long> naturalOrder().reversed());
 	}
 
-	private final Function<T, A> metricFactory;
+	private final Supplier<A> metricFactory;
 	private final BinaryOperator<A> metricReducer;
-	private final A identityMetric;
 
 	private final long bucketDurationMillis;
 
@@ -72,13 +67,18 @@ public class TimeBuckets<T extends TimeBound, A extends Consumer<T>>
 		long key = t.getTimeInMillis() / bucketDurationMillis;
 		buckets.compute(key, (k, v) -> {
 			if (v == null) {
-				return metricFactory.apply(t);
+				v = metricFactory.get();
 			}
-			else {
-				v.accept(t);
-				return v;
-			}
+			v.accept(t);
+			return v;
 		});
+	}
+
+	private void cleanAggregate(A aggregate) {
+		try {
+			aggregate.close();
+		}
+		catch (@SuppressWarnings("unused") Exception e) {}
 	}
 
 	/**
@@ -92,6 +92,7 @@ public class TimeBuckets<T extends TimeBound, A extends Consumer<T>>
 		while (reversedIterator.hasNext()) {
 			Map.Entry<Long, A> entry = reversedIterator.next();
 			if (entry.getKey() < keyLimit) {
+				cleanAggregate(entry.getValue());
 				reversedIterator.remove();
 			}
 			else {
@@ -104,12 +105,12 @@ public class TimeBuckets<T extends TimeBound, A extends Consumer<T>>
 	 * Computes aggregated metrics for a duration bigger that {@link #bucketDurationMillis}.
 	 * @param untilMillis End instant of the time frame.
 	 * @param duration Duration of the time frame.
-	 * @return The reducer metrics over the time frame.
+	 * @return The reduced metrics over the time frame.
 	 */
 	public final A reduceLatest(long untilMillis, Duration duration) {
 		long sinceKey = (untilMillis - duration.toMillis()) / bucketDurationMillis;
 		long untilKey = untilMillis / bucketDurationMillis;
-		A reduced = identityMetric;
+		A reduced = metricFactory.get();
 		Iterator<Map.Entry<Long, A>> iterator = buckets.entrySet().iterator();
 		while (iterator.hasNext()) {
 			Map.Entry<Long, A> entry = iterator.next();
@@ -125,5 +126,56 @@ public class TimeBuckets<T extends TimeBound, A extends Consumer<T>>
 			}
 		}
 		return reduced;
+	}
+
+	/**
+	 * Does the equivalent of several calls to {@link #reduceLatest(long, Duration)} more efficiently,
+	 * and also does a cleaning (like {@link #cleanUpOldest(long, Duration)}) according to the greatest
+	 * duration provided in the input list.
+	 *
+	 * @param untilMillis End instant of all the time frames.
+	 * @param durations   Durations of the time frames. They must be sorted from the shortest range to the greatest.
+	 * @return The Reduced metrics over the time frame in the order of the given durations.
+	 */
+	public final List<A> reduceLatestAndClean(long untilMillis, List<Duration> durations) {
+
+		if (durations == null || durations.isEmpty()) {
+			throw new IllegalArgumentException();
+		}
+
+		long untilKey = untilMillis / bucketDurationMillis;
+		List<A> reducedValues = IntStream.range(0, durations.size())
+				.mapToObj(index -> metricFactory.get())
+				.collect(Collectors.toList());
+		Duration greatestDuration = durations.stream()
+				.max(Comparator.naturalOrder())
+				.get();
+		long oldestKey = (untilMillis - greatestDuration.toMillis()) / bucketDurationMillis;
+
+		Iterator<Map.Entry<Long, A>> iterator = buckets.entrySet().iterator();
+		while (iterator.hasNext()) {
+			Map.Entry<Long, A> entry = iterator.next();
+			if (entry.getKey() > untilKey) {
+				// Too young for the time frame (the value would be used later)
+			}
+			else if (entry.getKey() >= oldestKey) {
+				// Iterating over durations
+				for (int i = 0; i < durations.size(); i++) {
+					Duration duration = durations.get(i);
+					A reducedValue = reducedValues.get(i);
+					if (duration == greatestDuration /* Is always considered */
+						|| entry.getKey() >= ((untilMillis - duration.toMillis()) / bucketDurationMillis)) {
+
+						reducedValues.set(i, metricReducer.apply(reducedValue, entry.getValue()));
+					}
+				}
+			}
+			else {
+				// Too old for being used by any duration -> cleaning it up
+				cleanAggregate(entry.getValue());
+				iterator.remove();
+			}
+		}
+		return reducedValues;
 	}
 }

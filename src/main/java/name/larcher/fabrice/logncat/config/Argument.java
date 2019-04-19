@@ -44,31 +44,31 @@ public enum Argument {
 		}
 	},
 
-	READ_IDLE_MILLIS("READ_IDLE_MS", 'w',
-			"Maximum idle time in milliseconds in the access log reading loop") {
+	READ_IDLE_DURATION("READ_IDLE", 'w',
+			"Maximum idle time in the access log reading loop") {
 
 		@Override
 		public String getDefaultValue() {
-			return String.valueOf(10L);
+			return DurationConverter.toString(Duration.ofMillis(10));
 		}
 
 		@Override
 		boolean isValid(String value) {
-			return isPositiveInteger(value);
+			return isDuration(value);
 		}
 	},
 
-	MAIN_IDLE_MILLIS("MAIN_IDLE_MS", 'm',
-			"Maximum idle time in milliseconds in main program loop") {
+	MAIN_IDLE_DURATION("MAIN_IDLE", 'm',
+			"Maximum idle time in main program loop") {
 
 		@Override
 		public String getDefaultValue() {
-			return String.valueOf(100L);
+			return DurationConverter.toString(Duration.ofMillis(100));
 		}
 
 		@Override
 		boolean isValid(String value) {
-			return isPositiveInteger(value);
+			return isDuration(value);
 		}
 	},
 
@@ -113,17 +113,46 @@ public enum Argument {
 		}
 	},
 
-	STATISTICS_LATEST_DURATION_MILLIS("STATS_DURATION_MS", 'p',
-			"Statistics refresh period in millis") {
+	MAX_SECTION_COUNT_RATIO("MAX_COUNT_RATIO", 'r',
+			"Maximum section count ratio. The result of this value multiplied with the 'top section count' is the " +
+			"maximum count of sections held in memory in statistics (technical limit in order to cap memory usage)") {
 
 		@Override
 		public String getDefaultValue() {
-			return String.valueOf(Duration.ofSeconds(10L).toMillis());
+			return String.valueOf(10);
 		}
 
 		@Override
 		boolean isValid(String value) {
 			return isPositiveInteger(value);
+		}
+	},
+
+	STATISTICS_LATEST_DURATION("STATS_DURATION", 's',
+			"Statistics refresh period in millis") {
+
+		@Override
+		public String getDefaultValue() {
+			return DurationConverter.toString(Duration.ofSeconds(10));
+		}
+
+		@Override
+		boolean isValid(String value) {
+			return isDuration(value);
+		}
+	},
+
+	DISPLAY_PERIOD("DISPLAY_PERIOD", 'p',
+			"Statistics refresh period in millis") {
+
+		@Override
+		public String getDefaultValue() {
+			return DurationConverter.toString(Duration.ofSeconds(1));
+		}
+
+		@Override
+		boolean isValid(String value) {
+			return isDuration(value);
 		}
 	},
 
@@ -153,6 +182,10 @@ public enum Argument {
 		catch (@SuppressWarnings("unused") NumberFormatException e) {
 			return false;
 		}
+	}
+
+	private static boolean isDuration(String durStr) {
+		return DurationConverter.fromString(durStr) != null;
 	}
 
 	/**
