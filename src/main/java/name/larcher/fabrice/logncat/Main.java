@@ -79,7 +79,7 @@ public class Main {
 
 		//--- Initializing the reader and its listeners
 
-		// Chosen comparator for "TOP sections"
+		// Chosen comparator for "TOP sections" (currently not configurable, but could be ..)
 		Comparator<Statistic.ScopedStatistic> statsComparator = ScopedStatisticComparators.COMPARATOR_BY_REQUEST_COUNT;
 		// A listener that supplies the latest entry (needed for the clock definition of watching tasks)
 		LatestConsumer<AccessLogLine> latestLogLineConsumer = new LatestConsumer<>();
@@ -96,10 +96,13 @@ public class Main {
 
 		//--- Initializing watching task
 
+		// The program's clock that adapts its time according to the input (where each entry is bound to the time)
 		Clock clock = new ReaderClock(timeZone, displayRefreshDuration, latestLogLineConsumer);
-		DisplayTask displayTask = new DisplayTask(overallStats, buckets, printer::formatInstant, clock);
+		// Listener for all statistics to be displayed
 		StatisticContext.StatisticListener statsListener = (ctx, date, stats) ->
 				printer.printStats(stats, date, ctx.getDuration(), ctx.getTopSectionCount());
+		// The watcher task that display the information
+		DisplayTask displayTask = new DisplayTask(overallStats, buckets, printer::formatInstant, clock);
 		displayTask.setOverallStats(new StatisticContext(null, topSectionCount, statsComparator, statsListener));
 		displayTask.setLatestStats(Collections.singletonList(new StatisticContext(latestStatsDuration, topSectionCount, statsComparator, statsListener)));
 		displayTask.setAlertStates(Collections.singletonList(new AlertState<>(throughputAlertConfig, alertingDuration)));
@@ -108,13 +111,13 @@ public class Main {
 		Printer.printBeforeRun(displayRefreshDuration);
 		ScheduledExecutorService executorService = createExecutorService();
 		try {
-			// Stats/alerts printing
+			// Stats/alerts printing done on a regular basis
 			long displayPeriodMillis = displayRefreshDuration.toMillis();
 			long alertingDurationMillis = alertingDuration.toMillis();
 			executorService.scheduleAtFixedRate(displayTask,
 					Math.min(displayPeriodMillis, alertingDurationMillis),
 					displayPeriodMillis, TimeUnit.MILLISECONDS);
-			// Reader
+			// Reader (always running until the end of the program)
 			executorService.submit(reader).get(); // Does not return until any interrupt request
 		}
 		catch (ExecutionException e) {

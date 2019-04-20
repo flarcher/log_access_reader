@@ -67,6 +67,7 @@ public class DisplayTask implements Runnable {
 			Collectors.toMap(StatisticContext::getDuration, Function.identity()));
 		addDurations(latestStatsContexts.stream()
 			.map(StatisticContext::getDuration)
+			.filter(Objects::nonNull)
 			.collect(Collectors.toList()));
 	}
 
@@ -75,6 +76,7 @@ public class DisplayTask implements Runnable {
 				Collectors.groupingBy(AlertState::getDuration, Collectors.toList()));
 		addDurations(alertStates.stream()
 				.map(AlertState::getDuration)
+				.filter(Objects::nonNull)
 				.collect(Collectors.toList()));
 	}
 
@@ -88,7 +90,7 @@ public class DisplayTask implements Runnable {
 			long instantMillis = instant.toEpochMilli();
 			String date = contextFunction.apply(instant);
 
-			// Overall stats (do not need "latest" data)
+			// Overall stats (does not need "latest" data)
 			overallStatsContext.notify(date, overallStats);
 
 			List<? extends Statistic> latestStatisticsList = timeBuckets.reduceLatest(instantMillis, allDurations);
@@ -106,7 +108,7 @@ public class DisplayTask implements Runnable {
 				List<AlertState<?>> alertStates = alertStatesByDuration.get(duration);
 				if (alertStates != null) {
 					alertStates.forEach(
-						// Will potentially notify listeners
+						// Will potentially notify listeners depending on the alert states
 						alertState -> alertState.check(stats, instantMillis));
 				}
 			}

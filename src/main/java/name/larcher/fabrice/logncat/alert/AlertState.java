@@ -40,6 +40,10 @@ public class AlertState<M> implements BiConsumer<Statistic, Instant> {
 	private Instant sinceInstant = null;
 	private M sinceValue = null;
 
+	public boolean isActive() {
+		return isActive;
+	}
+
 	// Consumption
 
 	public void check(Statistic statistic, long at) {

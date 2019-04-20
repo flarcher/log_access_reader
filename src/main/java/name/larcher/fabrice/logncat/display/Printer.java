@@ -23,7 +23,7 @@ import java.util.stream.Collectors;
 public final class Printer {
 
 	public Printer(ZoneId timeZone) {
-		this.timeZone = timeZone;
+		this.timeZone = Objects.requireNonNull(timeZone);
 	}
 
 	private final ZoneId timeZone;
@@ -93,9 +93,9 @@ public final class Printer {
 		return DateTimeFormatter.ISO_DATE_TIME.format(LocalDateTime.ofInstant(instant, timeZone));
 	}
 
-	public <M> void printAlert(AlertEvent<M> event) {
-		// “High traffic generated an alert - hits = {value}, triggered at {time}”
+	public void printAlert(AlertEvent<?> event) {
 		StringBuilder builder = new StringBuilder()
+			.append(event.isRaised() ? "[ALERT RAISED] " : "[ALERT RELEASED] ")
 			// “High traffic generated an alert - hits = {value}"
 			.append(String.format(event.getConfig().getDescription(), event.getValueAtSince()))
 			// , triggered at {since}”
