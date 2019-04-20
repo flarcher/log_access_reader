@@ -4,6 +4,8 @@
  */
 package name.larcher.fabrice.logncat;
 
+import name.larcher.fabrice.logncat.alert.AlertCheckingTask;
+import name.larcher.fabrice.logncat.alert.AlertConfig;
 import name.larcher.fabrice.logncat.config.Argument;
 import name.larcher.fabrice.logncat.config.Configuration;
 import name.larcher.fabrice.logncat.config.DurationConverter;
@@ -18,11 +20,10 @@ import name.larcher.fabrice.logncat.stat.StatisticAggregator;
 import name.larcher.fabrice.logncat.stat.StatisticTimeBucketsFactory;
 
 import java.nio.file.Paths;
+import java.time.Clock;
 import java.time.Duration;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.List;
+import java.time.ZoneId;
+import java.util.*;
 import java.util.concurrent.*;
 
 /**
@@ -50,62 +51,81 @@ public class Main {
 			return;
 		}
 
-		Duration mainIdle = DurationConverter.fromString(
-				configuration.getArgument(Argument.MAIN_IDLE_DURATION));
-		long mainIdleMillis = mainIdle.toMillis();
+		ZoneId timeZone = ZoneId.of(configuration.getArgument(Argument.TIME_ZONE));
+		Printer printer = new Printer(timeZone);
 
-		Duration latestStatsDuration = DurationConverter.fromString(
-				configuration.getArgument(Argument.STATISTICS_LATEST_DURATION));
-		long statsRefreshPeriodMillis = latestStatsDuration.toMillis();
-		if (statsRefreshPeriodMillis < mainIdleMillis) {
-			badConfiguration("The latest statistics duration " + statsRefreshPeriodMillis
-					+ " must be greater than the main loop idle duration " + mainIdleMillis);
-			System.exit(1);
-			return;
-		}
+		Duration mainIdle = DurationConverter.fromString(configuration.getArgument(Argument.MINIMUM_DURATION));
+		Duration latestStatsDuration = checkDuration(configuration, Argument.STATISTICS_LATEST_DURATION, mainIdle);
+		Duration displayRefreshDuration = checkDuration(configuration, Argument.DISPLAY_PERIOD_DURATION, mainIdle);
+		Duration alertingDuration = checkDuration(configuration, Argument.ALERTING_DURATION, mainIdle);
 
-		Duration displayRefreshDuration = DurationConverter.fromString(
-				configuration.getArgument(Argument.DISPLAY_PERIOD));
-		long statsDisplayPeriodMillis = displayRefreshDuration.toMillis();
-		if (statsDisplayPeriodMillis < mainIdleMillis) {
-			badConfiguration("The display refresh period " + statsDisplayPeriodMillis
-					+ " must be greater than the main loop idle duration " + mainIdleMillis);
-			System.exit(1);
-			return;
-		}
+		//--- Statistics specific configuration
 
 		int topSectionCount = Integer.parseInt(configuration.getArgument(Argument.TOP_SECTION_COUNT));
 		int maxSectionCountRatio = Integer.parseInt(configuration.getArgument(Argument.MAX_SECTION_COUNT_RATIO));
 		int maxSectionCount = topSectionCount * maxSectionCountRatio;
 
-		//--- Initializing of tasks and listeners
+		//--- Alerting specific configuration
+
+		// We basically read the configuration in order to define alerting rules
+		int alertReqPerSecThreshold = Integer.parseInt(
+				configuration.getArgument(Argument.ALERT_LOAD_THRESHOLD));
+		AlertConfig<Integer> throughputAlertConfig = new AlertConfig<>(
+				(stats, duration) -> (int) (stats.overall().requestCount() / duration.getSeconds()),
+				throughput -> throughput  >= alertReqPerSecThreshold,
+				"High traffic generated an alert - hits = %s",
+				printer::printAlert);
+		// Note: we could create many alert states with various configuration / thresholds / durations ...
+
+		//--- Initializing the reader and its listeners
+
+		// Chosen comparator for "TOP sections"
 		Comparator<Statistic.ScopedStatistic> statsComparator = ScopedStatisticComparators.COMPARATOR_BY_REQUEST_COUNT;
-
+		// A listener that supplies the latest entry (needed for the clock definition of watching tasks)
 		LatestConsumer<AccessLogLine> latestLogLineConsumer = new LatestConsumer<>();
+		// Simple single-step aggregation for overall metrics (no consideration about any "duration" of last entries).
 		StatisticAggregator overallStats = new StatisticAggregator(statsComparator, maxSectionCount);
+		// More complex 2-step aggregation for getting metrics in some "duration of last entries"
 		StatisticTimeBucketsFactory.StatisticTimeBuckets buckets = StatisticTimeBucketsFactory.create(statsComparator, mainIdle, maxSectionCount);
-
+		// The reading runnable task
 		AccessLogReadTask reader = new AccessLogReadTask(
-				Arrays.asList(overallStats, buckets, latestLogLineConsumer),
-				new AccessLogParser(configuration.getArgument(Argument.DATE_TIME_FORMAT)),
-				Paths.get(configuration.getArgument(Argument.ACCESS_LOG_FILE_LOCATION)),
+				Arrays.asList(overallStats, buckets, latestLogLineConsumer), // Listeners
+				new AccessLogParser(configuration.getArgument(Argument.DATE_TIME_FORMAT)), // Parser
+				Paths.get(configuration.getArgument(Argument.ACCESS_LOG_FILE_LOCATION)), // File location
 				DurationConverter.fromString(configuration.getArgument(Argument.READ_IDLE_DURATION)).toMillis());
 
-		DisplayTask display = new DisplayTask(statsDisplayPeriodMillis, overallStats, buckets, latestLogLineConsumer);
-		display.setTopSectionCount(topSectionCount);
-		display.setLatestStatsDurations(Collections.singletonList(latestStatsDuration));
+		//--- Initializing watching tasks
 
-		// TODO: Implement alerts
+		Clock clockForStats = new ReaderClock(timeZone, displayRefreshDuration, latestLogLineConsumer);
+		DisplayTask displayTask = new DisplayTask(overallStats, buckets, printer, clockForStats);
+		displayTask.setTopSectionCount(topSectionCount);
+		displayTask.setLatestStatsDurations(Collections.singletonList(latestStatsDuration));
+
+		Clock clockForAlerts = new ReaderClock(timeZone, displayRefreshDuration, latestLogLineConsumer);
+		// > This map can contain many more alert configurations and related durations ...
+		Map<AlertConfig<?>, List<Duration>> alerts = Collections.singletonMap(
+				throughputAlertConfig, Collections.singletonList(alertingDuration));
+		AlertCheckingTask alertCheckingTask = new AlertCheckingTask(buckets, alerts, clockForAlerts);
 
 		//--- Starting the engine...
 		Printer.printBeforeRun(displayRefreshDuration);
 		ScheduledExecutorService executorService = createExecutorService(2);
 		try {
-			executorService.scheduleAtFixedRate(display, statsDisplayPeriodMillis,
+			// Stats printing
+			long statsDisplayPeriodMillis = displayRefreshDuration.toMillis();
+			/*executorService.scheduleAtFixedRate(displayTask,
+					statsDisplayPeriodMillis,
+					statsDisplayPeriodMillis, TimeUnit.MILLISECONDS);*/
+			// Alerting
+			long alertingDurationMillis = alertingDuration.toMillis();
+			executorService.scheduleAtFixedRate(alertCheckingTask,
+					Math.min(statsDisplayPeriodMillis, alertingDurationMillis),
 					statsDisplayPeriodMillis, TimeUnit.MILLISECONDS);
+			// Reader
 			executorService.submit(reader).get(); // Does not return until any interrupt request
 		}
 		catch (ExecutionException e) {
+			// Is thrown from the 'reader' task
 			e.printStackTrace(System.err); // TODO: use some logging
 			awaitTermination(executorService);
 		}
@@ -119,6 +139,18 @@ public class Main {
 			t.printStackTrace(System.err); // TODO: use some logging
 			awaitTermination(executorService);
 		}
+	}
+
+	private static Duration checkDuration(Configuration configuration, Argument argument, Duration minimumDuration) {
+		Duration configuredDuration = DurationConverter.fromString(configuration.getArgument(argument));
+		if (configuredDuration.compareTo(minimumDuration) < 0) {
+			badConfiguration("The duration " + argument.name() +
+				" having a value " + DurationConverter.toString(configuredDuration)
+				+ " must be greater than the main loop idle duration of " + DurationConverter.toString(minimumDuration));
+			System.exit(1);
+			return null; // Never executed
+		}
+		return configuredDuration;
 	}
 
 	private static void badConfiguration(String reason) {

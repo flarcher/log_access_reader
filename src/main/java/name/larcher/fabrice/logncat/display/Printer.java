@@ -5,6 +5,7 @@
 
 package name.larcher.fabrice.logncat.display;
 
+import name.larcher.fabrice.logncat.alert.AlertEvent;
 import name.larcher.fabrice.logncat.config.Argument;
 import name.larcher.fabrice.logncat.config.DurationConverter;
 import name.larcher.fabrice.logncat.stat.Statistic.ScopedStatistic;
@@ -12,12 +13,20 @@ import name.larcher.fabrice.logncat.stat.Statistic;
 
 import java.io.PrintStream;
 import java.time.Duration;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
 
 public final class Printer {
 
-	private Printer() {} // Utility class
+	public Printer(ZoneId timeZone) {
+		this.timeZone = timeZone;
+	}
+
+	private final ZoneId timeZone;
 
 	private static String appName() {
 		return "LOG'n-CAT \uD83D\uDC31";
@@ -33,18 +42,12 @@ public final class Printer {
 		Arrays.stream(Argument.values())
 				.sorted(Comparator.comparing(Argument::getPropertyName))
 				.forEach( arg -> {
-
 					String name = arg.name().replaceAll("_", " ").toLowerCase();
 					printer.println("-" + arg.getCommandOption() + " <" + name + ">");
-
 					printer.println("  " + arg.getDescription());
-
 					printer.println("  Can be set using the environment variable " + arg.getEnvironmentParameter());
-
 					printer.println("  Can be set as the property " + arg.getPropertyName() + " in the configuration file");
-
 					printer.println("  The default value is «" + arg.getDefaultValue() + "»");
-
 					printer.println();
 				});
 	}
@@ -56,7 +59,7 @@ public final class Printer {
 		printer.println("You can quit using <^C> (or sending a kill signal)");
 	}
 
-	static void printStats(Statistic stats, String date, Duration period, int topSectionsCount) {
+	void printStats(Statistic stats, String date, Duration period, int topSectionsCount) {
 
 		PrintStream printer = System.out;
 		printer.print("[" + date + "] ");
@@ -84,5 +87,26 @@ public final class Printer {
 
 	static void noLine() {
 		System.out.println("No line");
+	}
+
+	String formatInstant(Instant instant) {
+		return DateTimeFormatter.ISO_DATE_TIME.format(LocalDateTime.ofInstant(instant, timeZone));
+	}
+
+	public <M> void printAlert(AlertEvent<M> event) {
+		// “High traffic generated an alert - hits = {value}, triggered at {time}”
+		StringBuilder builder = new StringBuilder()
+			// “High traffic generated an alert - hits = {value}"
+			.append(String.format(event.getConfig().getDescription(), event.getValueAtSince()))
+			// , triggered at {since}”
+			.append(", triggered at ")
+			.append(formatInstant(event.getSince()));
+		if (event.isReleased()) {
+			// , released at {until}”
+			builder
+				.append(", released at ")
+				.append(formatInstant(event.getUntil()));
+		}
+		System.out.println(builder.toString());
 	}
 }

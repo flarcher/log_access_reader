@@ -6,7 +6,9 @@
 package name.larcher.fabrice.logncat.config;
 
 import java.nio.file.*;
+import java.time.DateTimeException;
 import java.time.Duration;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 
 /**
@@ -58,8 +60,9 @@ public enum Argument {
 		}
 	},
 
-	MAIN_IDLE_DURATION("MAIN_IDLE", 'm',
-			"Maximum idle time in main program loop") {
+	MINIMUM_DURATION("MINIMUM_DURATION", 'm',
+			"Minimum duration of statistics aggregation. " +
+			"The shorter it is, the bigger will be the memory comsumption but better will be the statistics precision and the alerts responsiveness.") {
 
 		@Override
 		public String getDefaultValue() {
@@ -142,7 +145,7 @@ public enum Argument {
 		}
 	},
 
-	DISPLAY_PERIOD("DISPLAY_PERIOD", 'p',
+	DISPLAY_PERIOD_DURATION("DISPLAY_PERIOD_DURATION", 'p',
 			"Statistics refresh period in millis") {
 
 		@Override
@@ -153,6 +156,54 @@ public enum Argument {
 		@Override
 		boolean isValid(String value) {
 			return isDuration(value);
+		}
+	},
+
+	ALERTING_DURATION("ALERT_PERIOD", 'a',
+			"Time duration over the latest statistics used for checking alerting thresholds") {
+
+		@Override
+		public String getDefaultValue() {
+			return DurationConverter.toString(Duration.ofMinutes(2));
+		}
+
+		@Override
+		boolean isValid(String value) {
+			return isDuration(value);
+		}
+	},
+
+	ALERT_LOAD_THRESHOLD("ALERT_LOAD_THRESHOLD", 'l',
+			"Threshold for raising an alert related to the load. The value is the request count per second.") {
+
+		@Override
+		public String getDefaultValue() {
+			return Integer.toString(10);
+		}
+
+		@Override
+		boolean isValid(String value) {
+			return isPositiveInteger(value);
+		}
+	},
+
+	TIME_ZONE("TIME_ZONE", 'z',
+			"IANA Timezone ID to be used. Uses the system's timezone if not provided.") {
+
+		@Override
+		public String getDefaultValue() {
+			return ZoneId.systemDefault().getId();
+		}
+
+		@Override
+		boolean isValid(String value) {
+			try {
+				ZoneId.of(value);
+				return true;
+			}
+			catch (@SuppressWarnings("unused") DateTimeException e) {
+				return false;
+			}
 		}
 	},
 

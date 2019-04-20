@@ -72,6 +72,8 @@ public final class Configuration {
 		}
 	}
 
+	//EnumMap<Argument, String> parseCommandLine()
+
 	public Configuration(List<String> arguments) {
 		this(arguments, true, null);
 	}

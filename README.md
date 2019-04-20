@@ -76,12 +76,14 @@ Use `-h` as an argument in order to get details about all other available argume
 But the value can still be changed depending on *LogFileDateExt* value.
 * Use a _Duration_ syntax for configuration argument instead of milliseconds counts. Duration information in configuration entries can have values like `23m` (for 23 minutes) or `1m30s` (for one minute and 30 seconds).
 * Display stats at a configurable rate for the latest metrics of a greater period of time. By default, we print  each second the statistics about the last 10 seconds.
-*    
+* The alert raising mechanism responsiveness does not depend on the time duration of the scan on which the alert thresholds are tested. The two durations can be configured through two separate arguments.
+* There is a robustness/support related to timezone changes (because the timezone offset is read while parsing)
 
 ## Technical remarks
 
-* There is a robustness/support related to timezone changes (because the timezone offset is read while parsing)
-* There is a simple thread-model (reader, main, display)
+* The code makes possible to configure multiple alerts for various predicates (thresholds on any metrics) over different time durations and any mix of them. Configuration of alerting might still be complex for the user, so no configuration meaning is available in this version of the program. But still, if some requirement about alerting changes, we can already change the default (static) behavior easily.
+* The code allows to easily use other comparison methods for the _top sections_ (currently using the request count for the comparison). It could be even made configurable (with some comparison method listing eventually).
+* There is a simple thread-model (reader, main, alerting, display of stats) handled by a single executor service handled in the `Main` class.
 * It uses aggregation of information in order to reduce memory usage and memory allocation. The gathered information related to a single access log (class `AccessLogLine`) has only a short-term live in the application. The `AccessLogLine` instances are not stored in any collection but are aggregated as soon as possible in classes implementing `Consumer<AccessLogLine>` being `StaticticAggregator` and `TimeBuckets`. These classes aggregate access log information and each instance is related to a whole range of time.
 * With a given configuration, the memory consumption is intended to be stable over time. The 2-step aggregations (the first step running over the main idle time, then a second iterating for displayed statistics and alerts over 10 seconds by default) make sure to remove the oldest information (typically being more than 10s old with default configuration)
 * A limit about memory use can be configured. A possibly size-growing collection is related to the count of sections in statistics. A huge number of different sections in access log files can increase the memory consumption significantly. In order to address this, the arguments `MAX_SECTION_COUNT_RATIO` and `TOP_SECTION_COUNT` define a maximum count of sections held in memory, so that we can cap the memory consumption according to the gathering of _top sections statistics_.  The lower is the `MAX_SECTION_COUNT_RATIO` value, the bigger is the risk to miss some information related to the _top sections parts_ (however global statistics will stay true in all cases). About (only) the _top sections_ dislpay , the trade-off between precision/correctness and memory consumption explains the reason why the `MAX_SECTION_COUNT_RATIO` exists.
@@ -119,21 +121,6 @@ the JAR file manifest.
 |1.0|Statistics sent to the standard output stream|
 |2.0|Handling of alerts sent to the standard error stream|
 |3.0|Use of curses in a terminal|
-
-## For developers
-
-In order to increase the version using *Git* and *Maven*:
-
-```bash
-export LNC_VERSION=X.Y
-mvn versions:set "-DnewVersion=$LNC_VERSION"
-git add pom.xml
-git commit -m "Release of $LNC_VERSION"
-git push
-git tag -a "$LNC_VERSION" -m 'Put here the version comment'
-git push origin "$LNC_VERSION"
-mvn versions:set "-DnewVersion=${LNC_VERSION}-SNAPSHOT"
-```
 
 ## License
 
