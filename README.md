@@ -18,13 +18,13 @@ Example log lines:
 
 ## How to build
 
-* With Docker, run:
+* In order to use _Docker_, without having to install _maven_, please run the script `build_docker.sh`. It will try to use your local _maven repository_ in `$HOME/.m2` so that subsequent builds will be faster.
 
-TODO
+```bash
+./build_docker.sh
+```
 
-* Otherwise, you can run the next commands. Prerequisites are:
-    * Java Development Kit 8+
-    * Maven 3+
+* Otherwise, if you have a _Java Development Kit 8+_ and _Maven 3+_ installed, you can run the following command:
 
 ```bash
 mvn install
@@ -38,7 +38,7 @@ After a build,
 
 TODO
 
-* Otherwise, if you have a Java Runtime Environment version 8+ installed, you can run the following command. The last `-h` aims at printing some help about the program usage. 
+* Otherwise, if you have a _Java Runtime Environment version 8+_ installed, you can run the following command. The last `-h` aims at printing some help about the program usage. 
 
 ```bash
 java -jar target/log-n-cat-*.jar -h
