@@ -4,8 +4,8 @@
  */
 package name.larcher.fabrice.logncat;
 
-import name.larcher.fabrice.logncat.alert.AlertCheckingTask;
 import name.larcher.fabrice.logncat.alert.AlertConfig;
+import name.larcher.fabrice.logncat.alert.AlertState;
 import name.larcher.fabrice.logncat.config.Argument;
 import name.larcher.fabrice.logncat.config.Configuration;
 import name.larcher.fabrice.logncat.config.DurationConverter;
@@ -14,16 +14,16 @@ import name.larcher.fabrice.logncat.display.Printer;
 import name.larcher.fabrice.logncat.read.AccessLogLine;
 import name.larcher.fabrice.logncat.read.AccessLogParser;
 import name.larcher.fabrice.logncat.read.AccessLogReadTask;
-import name.larcher.fabrice.logncat.stat.ScopedStatisticComparators;
-import name.larcher.fabrice.logncat.stat.Statistic;
-import name.larcher.fabrice.logncat.stat.StatisticAggregator;
-import name.larcher.fabrice.logncat.stat.StatisticTimeBucketsFactory;
+import name.larcher.fabrice.logncat.stat.*;
 
 import java.nio.file.Paths;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.ZoneId;
-import java.util.*;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.List;
 import java.util.concurrent.*;
 
 /**
@@ -94,33 +94,26 @@ public class Main {
 				Paths.get(configuration.getArgument(Argument.ACCESS_LOG_FILE_LOCATION)), // File location
 				DurationConverter.fromString(configuration.getArgument(Argument.READ_IDLE_DURATION)).toMillis());
 
-		//--- Initializing watching tasks
+		//--- Initializing watching task
 
-		Clock clockForStats = new ReaderClock(timeZone, displayRefreshDuration, latestLogLineConsumer);
-		DisplayTask displayTask = new DisplayTask(overallStats, buckets, printer, clockForStats);
-		displayTask.setTopSectionCount(topSectionCount);
-		displayTask.setLatestStatsDurations(Collections.singletonList(latestStatsDuration));
-
-		Clock clockForAlerts = new ReaderClock(timeZone, displayRefreshDuration, latestLogLineConsumer);
-		// > This map can contain many more alert configurations and related durations ...
-		Map<AlertConfig<?>, List<Duration>> alerts = Collections.singletonMap(
-				throughputAlertConfig, Collections.singletonList(alertingDuration));
-		AlertCheckingTask alertCheckingTask = new AlertCheckingTask(buckets, alerts, clockForAlerts);
+		Clock clock = new ReaderClock(timeZone, displayRefreshDuration, latestLogLineConsumer);
+		DisplayTask displayTask = new DisplayTask(overallStats, buckets, printer::formatInstant, clock);
+		StatisticContext.StatisticListener statsListener = (ctx, date, stats) ->
+				printer.printStats(stats, date, ctx.getDuration(), ctx.getTopSectionCount());
+		displayTask.setOverallStats(new StatisticContext(null, topSectionCount, statsComparator, statsListener));
+		displayTask.setLatestStats(Collections.singletonList(new StatisticContext(latestStatsDuration, topSectionCount, statsComparator, statsListener)));
+		displayTask.setAlertStates(Collections.singletonList(new AlertState<>(throughputAlertConfig, alertingDuration)));
 
 		//--- Starting the engine...
 		Printer.printBeforeRun(displayRefreshDuration);
-		ScheduledExecutorService executorService = createExecutorService(2);
+		ScheduledExecutorService executorService = createExecutorService();
 		try {
-			// Stats printing
-			long statsDisplayPeriodMillis = displayRefreshDuration.toMillis();
-			/*executorService.scheduleAtFixedRate(displayTask,
-					statsDisplayPeriodMillis,
-					statsDisplayPeriodMillis, TimeUnit.MILLISECONDS);*/
-			// Alerting
+			// Stats/alerts printing
+			long displayPeriodMillis = displayRefreshDuration.toMillis();
 			long alertingDurationMillis = alertingDuration.toMillis();
-			executorService.scheduleAtFixedRate(alertCheckingTask,
-					Math.min(statsDisplayPeriodMillis, alertingDurationMillis),
-					statsDisplayPeriodMillis, TimeUnit.MILLISECONDS);
+			executorService.scheduleAtFixedRate(displayTask,
+					Math.min(displayPeriodMillis, alertingDurationMillis),
+					displayPeriodMillis, TimeUnit.MILLISECONDS);
 			// Reader
 			executorService.submit(reader).get(); // Does not return until any interrupt request
 		}
@@ -159,14 +152,14 @@ public class Main {
 		System.exit(1);
 	}
 
-	private static ScheduledExecutorService createExecutorService(int taskCount) {
+	private static ScheduledExecutorService createExecutorService() {
 		Thread.currentThread().setName("main");
 		Thread.UncaughtExceptionHandler ueh = (Thread t, Throwable e) -> {
 				// TODO: use some logging
 				System.err.println("Error from thread " + t.getName() + ": " + e.getMessage());
 				e.printStackTrace(System.err);
 			};
-		return Executors.newScheduledThreadPool(taskCount,
+		return Executors.newScheduledThreadPool(2,
 			runnable -> {
 				Thread t = new Thread(runnable);
 				t.setUncaughtExceptionHandler(ueh);

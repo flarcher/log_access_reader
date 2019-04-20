@@ -20,9 +20,9 @@ import java.util.function.BiConsumer;
  * @param <M> The alert metric.
  */
 @NotThreadSafe
-class AlertState<M> implements BiConsumer<Statistic, Instant> {
+public class AlertState<M> implements BiConsumer<Statistic, Instant> {
 
-	AlertState(AlertConfig<M> config, Duration duration) {
+	public AlertState(AlertConfig<M> config, Duration duration) {
 		this.config = config;
 		this.duration = duration;
 	}
@@ -30,7 +30,7 @@ class AlertState<M> implements BiConsumer<Statistic, Instant> {
 	private final AlertConfig<M> config;
 	private final Duration duration;
 
-	Duration getDuration() {
+	public Duration getDuration() {
 		return duration;
 	}
 
@@ -42,7 +42,7 @@ class AlertState<M> implements BiConsumer<Statistic, Instant> {
 
 	// Consumption
 
-	void check(Statistic statistic, long at) {
+	public void check(Statistic statistic, long at) {
 		M currentValue = config.getExtractor().apply(statistic, duration);
 		boolean eval = config.getPredicate().test(currentValue);
 		if (isActive != eval) {

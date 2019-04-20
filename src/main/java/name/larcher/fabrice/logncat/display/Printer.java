@@ -59,7 +59,7 @@ public final class Printer {
 		printer.println("You can quit using <^C> (or sending a kill signal)");
 	}
 
-	void printStats(Statistic stats, String date, Duration period, int topSectionsCount) {
+	public void printStats(Statistic stats, String date, Duration period, int topSectionsCount) {
 
 		PrintStream printer = System.out;
 		printer.print("[" + date + "] ");
@@ -89,7 +89,7 @@ public final class Printer {
 		System.out.println("No line");
 	}
 
-	String formatInstant(Instant instant) {
+	public String formatInstant(Instant instant) {
 		return DateTimeFormatter.ISO_DATE_TIME.format(LocalDateTime.ofInstant(instant, timeZone));
 	}
 

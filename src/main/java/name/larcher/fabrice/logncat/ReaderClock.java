@@ -79,6 +79,8 @@ public class ReaderClock extends Clock {
 		return lastInstant;
 	}
 
+	//--- Generated
+
 	@Override
 	public boolean equals(Object o) {
 		if (this == o) return true;

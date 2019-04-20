@@ -72,7 +72,30 @@ public final class Configuration {
 		}
 	}
 
-	//EnumMap<Argument, String> parseCommandLine()
+	private static EnumMap<Argument, String> parseCommandLine(List<String> arguments) {
+		EnumMap<Argument, String> argsMap = new EnumMap<>(Argument.class);
+
+		Iterator<String> argumentIterator = arguments.iterator();
+		while (argumentIterator.hasNext()) {
+			final String commandFlag = argumentIterator.next();
+			if (commandFlag.length() != 2 /* The single character plus the dash */) {
+				throw new IllegalArgumentException("Invalid flag " + commandFlag);
+			}
+
+			Argument arg = COMMAND_FLAG_TO_ARGUMENT.get(commandFlag.substring(1));
+			if (arg == null) {
+				throw new IllegalArgumentException("Unknown flag " + commandFlag);
+			}
+
+			if (!argumentIterator.hasNext()) {
+				throw new IllegalArgumentException("No value provided for option " + commandFlag);
+			}
+			else {
+				argsMap.put(arg, argumentIterator.next());
+			}
+		}
+		return argsMap;
+	}
 
 	public Configuration(List<String> arguments) {
 		this(arguments, true, null);
@@ -93,28 +116,8 @@ public final class Configuration {
 				@Nullable String defaultConfigFilePath)
 			throws IllegalArgumentException {
 
-		EnumMap<Argument, String> argsMap = new EnumMap<>(Argument.class);
-
 		// 1st step: we get values from the command arguments
-		Iterator<String> argumentIterator = arguments.iterator();
-		while (argumentIterator.hasNext()) {
-			final String commandFlag = argumentIterator.next();
-			if (commandFlag.length() != 2 /* The single character plus the dash */) {
-				throw new IllegalArgumentException("Invalid flag " + commandFlag);
-			}
-
-			Argument arg = COMMAND_FLAG_TO_ARGUMENT.get(commandFlag.substring(1));
-			if (arg == null) {
-				throw new IllegalArgumentException("Unknown flag " + commandFlag);
-			}
-
-			if (!argumentIterator.hasNext()) {
-				throw new IllegalArgumentException("No value provided for option " + commandFlag);
-			}
-			else {
-				argsMap.put(arg, argumentIterator.next());
-			}
-		}
+		EnumMap<Argument, String> argsMap = parseCommandLine(arguments);
 
 		// 2nd step: we get values from the environment variables
 		unresolvedArguments(argsMap)
