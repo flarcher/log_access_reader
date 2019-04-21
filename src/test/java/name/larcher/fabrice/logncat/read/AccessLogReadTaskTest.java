@@ -23,7 +23,7 @@ public class AccessLogReadTaskTest {
 
 	private static final Path TEST_LOG_FILE_PATH = TestUtils.getTestResourcePath("access.log");
 	private static final int TEST_LOG_FILE_LINE_COUNT = 4;
-	private static final Function<String, AccessLogLine> PARSER = line -> new AccessLogLine(Instant.now(), "");
+	private static final Function<String, AccessLogLine> PARSER = line -> new AccessLogLine(Instant.now(), "", 0);
 
 	@Test
 	public void canReadExample() {

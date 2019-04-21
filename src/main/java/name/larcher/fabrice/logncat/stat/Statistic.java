@@ -48,6 +48,8 @@ public interface Statistic extends AutoCloseable {
 
 		int requestCount();
 
+		int weight();
+
 		/**
 		 * Aggregates statistics of another instance.
 		 */

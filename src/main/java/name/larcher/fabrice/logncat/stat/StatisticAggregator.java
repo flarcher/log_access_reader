@@ -141,6 +141,7 @@ public class StatisticAggregator implements Statistic, Consumer<AccessLogLine> {
 		ScopedStatisticAggregator() {}
 
 		private AtomicInteger count = new AtomicInteger(0);
+		private AtomicInteger weight = new AtomicInteger(0);
 
 		@Override
 		public int requestCount() {
@@ -148,17 +149,25 @@ public class StatisticAggregator implements Statistic, Consumer<AccessLogLine> {
 		}
 
 		@Override
+		public int weight() {
+			return weight.get();
+		}
+
+		@Override
 		public void accept(AccessLogLine accessLogLine) {
 			count.incrementAndGet();
+			weight.addAndGet(accessLogLine.getLength());
 		}
 
 		@Override
 		public void add(ScopedStatistic other) {
 			count.addAndGet(other.requestCount());
+			weight.addAndGet(other.weight());
 		}
 
 		void clear() {
 			count.set(0);
+			weight.set(0);
 		}
 	}
 }

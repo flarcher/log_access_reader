@@ -92,6 +92,17 @@ public class AccessLogParser implements Function<String, AccessLogLine> {
 		return line.substring(previousIndex, nextIndex);
 	}
 
+	private int getLength(String line) {
+		int lastSpaceIndex = line.lastIndexOf(' ');
+		String byteCountStr = line.substring(lastSpaceIndex + 1);
+		try {
+			return Integer.parseUnsignedInt(byteCountStr);
+		}
+		catch (NumberFormatException e) {
+			return -1; // A negative result means a parsing error
+		}
+	}
+
 	// Input example: 127.0.0.1 - frank [09/May/2018:16:00:42 +0000] "POST /api/user HTTP/1.0" 200 34
 	@Nullable
 	@Override
@@ -123,6 +134,8 @@ public class AccessLogParser implements Function<String, AccessLogLine> {
 			// Even if the rest of the line is malformed, we consider the request for an unknown section
 			section = UNKNOWN_SECTION;
 		}
-		return new AccessLogLine(instant, section);
+
+		int length = getLength(line);
+		return new AccessLogLine(instant, section, length);
 	}
 }

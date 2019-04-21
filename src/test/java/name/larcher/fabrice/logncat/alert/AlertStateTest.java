@@ -60,6 +60,11 @@ public class AlertStateTest {
 					}
 
 					@Override
+					public int weight() {
+						return 0;
+					}
+
+					@Override
 					public void add(ScopedStatistic other) {
 
 					}

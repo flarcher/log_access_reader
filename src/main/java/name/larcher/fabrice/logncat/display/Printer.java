@@ -82,7 +82,8 @@ public final class Printer {
 	}
 
 	private static String scopedStatsToString(ScopedStatistic scopedStats) {
-		return "count: " + scopedStats.requestCount();
+		return "count: " + scopedStats.requestCount() +
+			", bytes: " + scopedStats.weight();
 	}
 
 	public void noLine() {
