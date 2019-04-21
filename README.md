@@ -86,6 +86,8 @@ But the value can still be changed depending on *LogFileDateExt* value.
 * There is a robustness/support related to timezone changes (because the timezone offset is read while parsing)
 * The reading and processing mechanism is robust about inputs not coming in the chronological order and/or been late. Moreover, the entry processing follows a specific time clock (see class `ReaderClock`) that adapt its speed to the 
 incoming lines (bound to time) of the access log file.
+* For both overall and section related statistics, we display the request count and the byte count transfered.
+* For both overall and section related statistics, we display the throughput per second and the bandwidth per second.
 
 ## Technical remarks
 
@@ -104,7 +106,6 @@ incoming lines (bound to time) of the access log file.
 * Use a _curses_ like library for console output
 * Use a logging library like _logBack_ with an output towards a log file whose path can be configured.
 * Provide JMX metrics. Especially about the maximum statictic's section count and the size of the time bucket's internal map.
-* Provide metrics about the bytes count.
 * Makes possible to issue a configured command call when an alert is raised/released. 
 * Provide stats in several periods of time like; _fromStart_, 1day, 1hour, 5min, 10sec
 * Support a better configuration file format instead of the legacy _properties format_, like YAML for example

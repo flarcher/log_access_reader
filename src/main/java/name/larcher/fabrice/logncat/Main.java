@@ -98,15 +98,19 @@ public class Main {
 		// The program's clock that adapts its time according to the input (where each entry is bound to the time)
 		Clock clock = new ReaderClock(timeZone, displayRefreshDuration, latestLogLineConsumer);
 		// Listener for all statistics to be displayed
-		StatisticContext.StatisticListener statsListener = (ctx, date, stats) ->
-				printer.printStats(stats, date, ctx.getDuration(), ctx.getTopSectionCount());
+		StatisticContext.StatisticListener statsListener = printer::printStats;
 		// The watcher task that display the information
 		WatcherTask watcherTask = new WatcherTask(
 				overallStats, buckets,
 				printer::formatInstant, printer::noLine,
 				clock);
-		watcherTask.setOverallStats(new StatisticContext(null, topSectionCount, statsComparator, statsListener));
-		watcherTask.setLatestStats(Collections.singletonList(new StatisticContext(latestStatsDuration, topSectionCount, statsComparator, statsListener)));
+		watcherTask.setOverallStats(StatisticContext.createOverallContext(
+				latestLogLineConsumer::getFirst,
+				latestLogLineConsumer::getLatest,
+				TimeBound::getTimeInMillis,
+				topSectionCount, statsComparator, statsListener));
+		watcherTask.setLatestStats(Collections.singletonList(StatisticContext.createTimeRangeContext(
+				latestStatsDuration, topSectionCount, statsComparator, statsListener)));
 		watcherTask.setAlertStates(Collections.singletonList(new AlertState<>(throughputAlertConfig, alertingDuration)));
 
 		//--- Starting the engine...

@@ -5,44 +5,103 @@
 
 package name.larcher.fabrice.logncat.stat;
 
-import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 import java.time.Duration;
 import java.util.Comparator;
 import java.util.Objects;
+import java.util.function.Function;
+import java.util.function.Supplier;
 
 @Immutable
-public class StatisticContext {
+public final class StatisticContext {
 
 	@FunctionalInterface
 	public interface StatisticListener {
 
 		void accept(
 			StatisticContext context,
-			String date,
-			Statistic value);
+			Statistic value,
+			String date);
 	}
 
-	public StatisticContext(
-			@Nullable Duration duration,
+	private static <I, O> Supplier<O> convertSupplier(Supplier<I> supplier, Function<I, O> function) {
+		return () -> {
+			I in = supplier.get();
+			return in == null ? null : function.apply(in);
+		};
+	}
+
+	public static <T> StatisticContext createOverallContext(
+			Supplier<T> sinceGetter,
+			Supplier<T> untilGetter,
+			Function<T, Long> toMillis,
 			int topSectionCount,
 			Comparator<Statistic.ScopedStatistic> sectionComparator,
 			StatisticListener listener) {
+		return createOverallContext(
+			convertSupplier(sinceGetter, toMillis),
+			convertSupplier(untilGetter, toMillis),
+			topSectionCount, sectionComparator, listener);
+	}
 
-		this.duration = duration;
+	public static StatisticContext createOverallContext(
+			Supplier<Long> sinceMillisGetter,
+			Supplier<Long> untilMillisGetter,
+			int topSectionCount,
+			Comparator<Statistic.ScopedStatistic> sectionComparator,
+			StatisticListener listener) {
+		return new StatisticContext(
+				() -> {
+					Long since = sinceMillisGetter.get();
+					if (since == null) {
+						return Duration.ZERO;
+					}
+					Long until = untilMillisGetter.get();
+					if (until == null) {
+						until = System.currentTimeMillis();
+					}
+					return Duration.ofMillis(until - since);
+				},
+				topSectionCount,
+				sectionComparator,
+				listener,
+				true);
+	}
+
+	public static StatisticContext createTimeRangeContext(
+			Duration duration,
+			int topSectionCount,
+			Comparator<Statistic.ScopedStatistic> sectionComparator,
+			StatisticListener listener) {
+		return new StatisticContext(() -> duration, topSectionCount, sectionComparator, listener, false);
+	}
+
+	private StatisticContext(
+			Supplier<Duration> durationGetter,
+			int topSectionCount,
+			Comparator<Statistic.ScopedStatistic> sectionComparator,
+			StatisticListener listener,
+			boolean isDynamic) {
+
+		this.durationGetter = Objects.requireNonNull(durationGetter);
 		this.topSectionCount = topSectionCount;
 		this.listener = Objects.requireNonNull(listener);
 		this.sectionComparator = Objects.requireNonNull(sectionComparator);
+		this.isDynamic = isDynamic;
 	}
 
-	private final Duration duration;
+	private final Supplier<Duration> durationGetter;
 	private final int topSectionCount;
 	private final Comparator<Statistic.ScopedStatistic> sectionComparator;
 	private final StatisticListener listener;
+	private final boolean isDynamic;
 
-	@Nullable
+	public boolean isDynamic() {
+		return isDynamic;
+	}
+
 	public Duration getDuration() {
-		return duration;
+		return durationGetter.get();
 	}
 
 	public int getTopSectionCount() {
@@ -54,6 +113,6 @@ public class StatisticContext {
 	}
 
 	public void notify(String date, Statistic statistic) {
-		listener.accept(this, date, statistic);
+		listener.accept(this, statistic, date);
 	}
 }
