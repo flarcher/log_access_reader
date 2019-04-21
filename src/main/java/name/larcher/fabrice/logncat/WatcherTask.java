@@ -3,11 +3,11 @@
  * Fabrice Larcher
  */
 
-package name.larcher.fabrice.logncat.display;
+package name.larcher.fabrice.logncat;
 
 import name.larcher.fabrice.logncat.alert.AlertState;
-import name.larcher.fabrice.logncat.stat.StatisticContext;
 import name.larcher.fabrice.logncat.stat.Statistic;
+import name.larcher.fabrice.logncat.stat.StatisticContext;
 import name.larcher.fabrice.logncat.stat.StatisticTimeBucketsFactory;
 
 import java.time.Clock;
@@ -20,23 +20,26 @@ import java.util.stream.Collectors;
 /**
  * A task that display the latest information about access log lines.
  */
-public class DisplayTask implements Runnable {
+class WatcherTask implements Runnable {
 
-	public DisplayTask(
+	WatcherTask(
 			Statistic overallStats,
 			StatisticTimeBucketsFactory.StatisticTimeBuckets statsBuckets,
 			Function<Instant, String> contextFunction,
+			Runnable waiting,
 			Clock clock) {
 
 		this.overallStats = Objects.requireNonNull(overallStats);
 		this.contextFunction = Objects.requireNonNull(contextFunction);
 		this.timeBuckets = Objects.requireNonNull(statsBuckets);
+		this.waiting = Objects.requireNonNull(waiting);
 		this.clock = Objects.requireNonNull(clock);
 	}
 
 	private final Statistic overallStats;
 	private final StatisticTimeBucketsFactory.StatisticTimeBuckets timeBuckets;
 	private final Function<Instant, String> contextFunction;
+	private final Runnable waiting;
 	private final Clock clock;
 
 	//--- Display attributes (can change from one display to another)
@@ -58,11 +61,11 @@ public class DisplayTask implements Runnable {
 
 	//--- Setters (not thread safe!)
 
-	public void setOverallStats(StatisticContext context) {
+	void setOverallStats(StatisticContext context) {
 		this.overallStatsContext = context;
 	}
 
-	public void setLatestStats(List<StatisticContext> latestStatsContexts) {
+	void setLatestStats(List<StatisticContext> latestStatsContexts) {
 		latestStatsByDuration = latestStatsContexts.stream().collect(
 			Collectors.toMap(StatisticContext::getDuration, Function.identity()));
 		addDurations(latestStatsContexts.stream()
@@ -71,7 +74,7 @@ public class DisplayTask implements Runnable {
 			.collect(Collectors.toList()));
 	}
 
-	public void setAlertStates(List<AlertState<?>> alertStates) {
+	void setAlertStates(List<AlertState<?>> alertStates) {
 		alertStatesByDuration = alertStates.stream().collect(
 				Collectors.groupingBy(AlertState::getDuration, Collectors.toList()));
 		addDurations(alertStates.stream()
@@ -84,7 +87,7 @@ public class DisplayTask implements Runnable {
 	public void run() {
 		Instant instant = clock.instant();
 		if (instant == null) {  // Can be null without traffic
-			Printer.noLine(); // Waiting for input
+			waiting.run(); // Waiting for input
 		}
 		else {
 			long instantMillis = instant.toEpochMilli();

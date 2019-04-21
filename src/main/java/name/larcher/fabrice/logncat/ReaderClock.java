@@ -23,14 +23,14 @@ import java.util.function.Supplier;
  * We avoid of being late, so that latest statistics and alerts have always a meaning.</li>
  * </ul>
  */
-public class ReaderClock extends Clock {
+class ReaderClock extends Clock {
 
 	/**
 	 * @param timeZone Clock's single timezone. Please note that {@link #withZone(ZoneId)} is not implemented.
 	 * @param period The period of time between 2 calls to {@link #instant()}.
 	 * @param readerTempo Gives the reader's last time bound input in order to have the tempo of the reader.
 	 */
-	public ReaderClock(
+	ReaderClock(
 			ZoneId timeZone,
 			Duration period,
 			Supplier<? extends TimeBound> readerTempo) {

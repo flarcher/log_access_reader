@@ -9,7 +9,6 @@ import name.larcher.fabrice.logncat.alert.AlertState;
 import name.larcher.fabrice.logncat.config.Argument;
 import name.larcher.fabrice.logncat.config.Configuration;
 import name.larcher.fabrice.logncat.config.DurationConverter;
-import name.larcher.fabrice.logncat.display.DisplayTask;
 import name.larcher.fabrice.logncat.display.Printer;
 import name.larcher.fabrice.logncat.read.AccessLogLine;
 import name.larcher.fabrice.logncat.read.AccessLogParser;
@@ -102,10 +101,13 @@ public class Main {
 		StatisticContext.StatisticListener statsListener = (ctx, date, stats) ->
 				printer.printStats(stats, date, ctx.getDuration(), ctx.getTopSectionCount());
 		// The watcher task that display the information
-		DisplayTask displayTask = new DisplayTask(overallStats, buckets, printer::formatInstant, clock);
-		displayTask.setOverallStats(new StatisticContext(null, topSectionCount, statsComparator, statsListener));
-		displayTask.setLatestStats(Collections.singletonList(new StatisticContext(latestStatsDuration, topSectionCount, statsComparator, statsListener)));
-		displayTask.setAlertStates(Collections.singletonList(new AlertState<>(throughputAlertConfig, alertingDuration)));
+		WatcherTask watcherTask = new WatcherTask(
+				overallStats, buckets,
+				printer::formatInstant, printer::noLine,
+				clock);
+		watcherTask.setOverallStats(new StatisticContext(null, topSectionCount, statsComparator, statsListener));
+		watcherTask.setLatestStats(Collections.singletonList(new StatisticContext(latestStatsDuration, topSectionCount, statsComparator, statsListener)));
+		watcherTask.setAlertStates(Collections.singletonList(new AlertState<>(throughputAlertConfig, alertingDuration)));
 
 		//--- Starting the engine...
 		Printer.printBeforeRun(displayRefreshDuration);
@@ -114,7 +116,7 @@ public class Main {
 			// Stats/alerts printing done on a regular basis
 			long displayPeriodMillis = displayRefreshDuration.toMillis();
 			long alertingDurationMillis = alertingDuration.toMillis();
-			executorService.scheduleAtFixedRate(displayTask,
+			executorService.scheduleAtFixedRate(watcherTask,
 					Math.min(displayPeriodMillis, alertingDurationMillis),
 					displayPeriodMillis, TimeUnit.MILLISECONDS);
 			// Reader (always running until the end of the program)

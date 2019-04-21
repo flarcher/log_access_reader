@@ -85,7 +85,7 @@ public final class Printer {
 		return "count: " + scopedStats.requestCount();
 	}
 
-	static void noLine() {
+	public void noLine() {
 		System.out.println("No line");
 	}
 
