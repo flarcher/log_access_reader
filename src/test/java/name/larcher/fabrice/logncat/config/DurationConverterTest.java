@@ -5,6 +5,7 @@
 
 package name.larcher.fabrice.logncat.config;
 
+import name.larcher.fabrice.logncat.DurationConverter;
 import org.junit.Assert;
 import org.junit.Test;
 

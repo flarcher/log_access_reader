@@ -8,7 +8,6 @@ import name.larcher.fabrice.logncat.alert.AlertConfig;
 import name.larcher.fabrice.logncat.alert.AlertState;
 import name.larcher.fabrice.logncat.config.Argument;
 import name.larcher.fabrice.logncat.config.Configuration;
-import name.larcher.fabrice.logncat.config.DurationConverter;
 import name.larcher.fabrice.logncat.display.Console;
 import name.larcher.fabrice.logncat.read.AccessLogLine;
 import name.larcher.fabrice.logncat.read.AccessLogParser;
@@ -92,7 +91,7 @@ public class Main {
 		AlertConfig<Integer> throughputAlertConfig = new AlertConfig<>(
 				(stats, duration) -> (int) (stats.overall().requestCount() / duration.getSeconds()),
 				throughput -> throughput  >= alertReqPerSecThreshold,
-				"High traffic generated an alert - hits = %s",
+				"High traffic",
 				console::onAlert);
 		// Note: we could create many alert states with various configuration / thresholds / durations ...
 

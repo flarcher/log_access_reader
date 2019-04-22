@@ -35,11 +35,11 @@ class LatestConsumer<T extends TimeBound> implements Consumer<T>, Supplier<T> {
 		}
 	}
 
-	public T getFirst() {
+	T getFirst() {
 		return firstRef.get();
 	}
 
-	public T getLatest() {
+	T getLatest() {
 		return latestRef.get();
 	}
 

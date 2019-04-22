@@ -3,7 +3,7 @@
  * Fabrice Larcher
  */
 
-package name.larcher.fabrice.logncat.config;
+package name.larcher.fabrice.logncat;
 
 import java.time.Duration;
 import java.time.format.DateTimeParseException;

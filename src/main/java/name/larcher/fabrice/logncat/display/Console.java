@@ -13,7 +13,7 @@ import com.googlecode.lanterna.screen.TerminalScreen;
 import com.googlecode.lanterna.terminal.DefaultTerminalFactory;
 import com.googlecode.lanterna.terminal.Terminal;
 import name.larcher.fabrice.logncat.alert.AlertEvent;
-import name.larcher.fabrice.logncat.config.DurationConverter;
+import name.larcher.fabrice.logncat.DurationConverter;
 import name.larcher.fabrice.logncat.stat.Statistic;
 import name.larcher.fabrice.logncat.stat.StatisticContext;
 
@@ -53,13 +53,18 @@ public class Console implements Closeable {
 		}
 	}
 
+	// Construction variables
 	private final Printer printer;
-	private Runnable onQuit;
-	private Duration refreshPeriodMillis;
 	private final Screen screen;
 	private final TextGraphics tg;
 
+	// Init variables
+	private Runnable onQuit;
+	private Duration refreshPeriodMillis;
+
+	// Mutable state
 	private int nextRow = 0;
+	private final Deque<AlertEvent<?>> alertsDeque = new ConcurrentLinkedDeque<>(); // Used as a LIFO queue
 
 	public synchronized void beforePrint(Instant instant) {
 		screen.clear();
@@ -90,6 +95,11 @@ public class Console implements Closeable {
 		tg.putString(0, nextRow++, "Waiting for input");
 	}
 
+	private static final TextColor RECTANGLE_FOREGROUND_COLOR = new TextColor.Indexed(242);
+	private static final TextColor RECTANGLE_BACKGROUND_COLOR = new TextColor.RGB(0,0,0);
+	private static final int RECTANGLE_WIDTH = 80;
+	private static final int METRICS_WIDTH = 25;
+
 	public synchronized void onStat(StatisticContext context, Statistic stats) {
 
 		Duration duration = context.getDuration();
@@ -100,39 +110,39 @@ public class Console implements Closeable {
 
 		tg.drawRectangle(
 				new TerminalPosition(0, nextRow),
-				new TerminalSize(80, sectionStats.size() + 3),
-				new TextCharacter('·',
-						new TextColor.Indexed(242),
-						new TextColor.RGB(0,0,0)));
+				new TerminalSize(RECTANGLE_WIDTH, sectionStats.size() + 3),
+				new TextCharacter('·', RECTANGLE_FOREGROUND_COLOR, RECTANGLE_BACKGROUND_COLOR));
 		tg.setModifiers(EnumSet.of(SGR.UNDERLINE, SGR.BOLD));
-		tg.putString(4, nextRow++, context.isDynamic()
-				? " From start (" + DurationConverter.toString(duration) + ")"
+		tg.putString(4, nextRow, context.isDynamic()
+				? " Overall (" + DurationConverter.toString(duration) + ")"
 				: " Latest " + DurationConverter.toString(duration));
 		tg.clearModifiers();
+		tg.putString(RECTANGLE_WIDTH - (2 * METRICS_WIDTH), nextRow, "Count");
+		tg.putString(RECTANGLE_WIDTH - METRICS_WIDTH, nextRow, "Bytes");
+		nextRow++;
 
-		onScopedStat("«total»", stats.overall(), duration);
-
+		onScopedStat(null, stats.overall(), duration);
 		sectionStats.forEach(entry -> onScopedStat(entry.getKey(), entry.getValue(), duration));
+
 		nextRow++;
 	}
 
 	private void onScopedStat(String section, Statistic.ScopedStatistic value, Duration duration) {
-		tg.putString(2, nextRow, "/" + section);
-		tg.putString(30, nextRow, "Count: " + Printer.getValueWithRatio(value.requestCount(), duration));
-		tg.putString(58, nextRow, "Bytes: " + Printer.getValueWithRatio(value.weight(), duration));
+		tg.putString(2, nextRow, section == null ? "«total»" : "/" + section);
+		tg.putString(RECTANGLE_WIDTH - (2 * METRICS_WIDTH), nextRow, Printer.getValueWithRatio(value.requestCount(), duration));
+		tg.putString(RECTANGLE_WIDTH - METRICS_WIDTH, nextRow, Printer.getValueWithRatio(value.weight(), duration));
 		nextRow++;
 	}
 
-	private Deque<AlertEvent<?>> alertStringsDeque = new ConcurrentLinkedDeque<>();
-
 	public void onAlert(AlertEvent<?> event) {
-		alertStringsDeque.addFirst(event);
+		// We insert as the first so that the latest entries get printed first -> LIFO
+		alertsDeque.addFirst(event);
 	}
 
 	private void printAlertHistory() {
 		tg.setModifiers(EnumSet.of(SGR.BOLD));
 		TextColor previousColor = tg.getForegroundColor();
-		alertStringsDeque
+		alertsDeque
 			.forEach(event -> {
 				String str = printer.printAlert(event);
 				tg.setForegroundColor(event.isRaised() ? TextColor.ANSI.RED : TextColor.ANSI.GREEN);

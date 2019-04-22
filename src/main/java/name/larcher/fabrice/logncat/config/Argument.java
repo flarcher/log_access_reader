@@ -5,6 +5,8 @@
 
 package name.larcher.fabrice.logncat.config;
 
+import name.larcher.fabrice.logncat.DurationConverter;
+
 import java.nio.file.*;
 import java.time.DateTimeException;
 import java.time.Duration;

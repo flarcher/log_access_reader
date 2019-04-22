@@ -6,7 +6,7 @@
 package name.larcher.fabrice.logncat.display;
 
 import name.larcher.fabrice.logncat.alert.AlertEvent;
-import name.larcher.fabrice.logncat.config.DurationConverter;
+import name.larcher.fabrice.logncat.DurationConverter;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -35,7 +35,7 @@ final class Printer {
 				"You can quit by pressing <Escape> or 'q'");
 	}
 
-	static String getSI(long value) {
+	private static String getSI(long value) {
 		long divided;
 		char suffix;
 		if (value > 1_000_000_000_000L) {
@@ -63,7 +63,7 @@ final class Printer {
 
 	private static final int MAX_DECIMAL_COUNT = 2;
 
-	static String getRatio(long value, long by) {
+	private static String getRatio(long value, long by) {
 		double ratio = ((double) value) / by;
 		if (ratio < 1_000D) {
 			String str = Double.toString(ratio);
@@ -90,19 +90,19 @@ final class Printer {
 	}
 
 	String printAlert(AlertEvent<?> event) {
-		StringBuilder builder = new StringBuilder()
-			.append(event.isRaised() ? "[RAISED] " : "[RELEASED] ")
-			// “High traffic generated an alert - hits = {value}"
-			.append(String.format(event.getConfig().getDescription(), event.getValueAtSince()))
-			// , triggered at {since}”
-			.append(", triggered at ")
-			.append(formatInstant(event.getSince()));
+		String str =
+			// Date
+			"[" + formatInstant(event.isRaised() ? event.getSince() : event.getUntil()) + "]" +
+			// Type
+			(event.isRaised() ? "! RAISED ! " : "!RELEASED! ") +
+			// “High traffic generated an alert
+			"\"" + event.getConfig().getDescription() + "\" " +
+			//  - hits = {value}"
+			"hits = {" + event.getValueAtSince().toString() + "}";
 		if (event.isReleased()) {
-			// , released at {until}”
-			builder
-				.append(", released at ")
-				.append(formatInstant(event.getUntil()));
+			// , since {since}”
+			str += " since [" + formatInstant(event.getSince()) + "]";
 		}
-		return builder.toString();
+		return str;
 	}
 }
