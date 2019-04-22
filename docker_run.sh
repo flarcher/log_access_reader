@@ -26,7 +26,7 @@ fi
 # - a debug port 8000 on the host
 # - container limited resources enabled
 # - some heap size configuration
-docker run --rm --name lnc-run \
+docker run --rm -it --name lnc-run \
     -v "$(pwd)":/usr/src/myapp \
     -w /usr/src/myapp \
     -v "${ACCESS_LOG_DIR}":/tmp \

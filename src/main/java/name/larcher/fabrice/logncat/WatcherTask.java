@@ -89,6 +89,7 @@ class WatcherTask implements Runnable {
 
 	@Override
 	public void run() {
+		Thread.currentThread().setName("watcher");
 		Instant instant = clock.instant();
 		before.accept(instant);
 		if (instant == null) {  // Can be null without traffic

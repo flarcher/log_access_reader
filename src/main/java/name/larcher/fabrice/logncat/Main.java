@@ -5,10 +5,13 @@
 package name.larcher.fabrice.logncat;
 
 import name.larcher.fabrice.logncat.alert.AlertConfig;
+import name.larcher.fabrice.logncat.alert.AlertEvent;
 import name.larcher.fabrice.logncat.alert.AlertState;
 import name.larcher.fabrice.logncat.config.Argument;
 import name.larcher.fabrice.logncat.config.Configuration;
+import name.larcher.fabrice.logncat.display.AlertPrintListener;
 import name.larcher.fabrice.logncat.display.Console;
+import name.larcher.fabrice.logncat.display.Printer;
 import name.larcher.fabrice.logncat.read.AccessLogLine;
 import name.larcher.fabrice.logncat.read.AccessLogParser;
 import name.larcher.fabrice.logncat.read.AccessLogReadTask;
@@ -25,6 +28,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.*;
 import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 
 /**
  * Program entry point.
@@ -81,18 +85,24 @@ public class Main {
 
 		//--- Initializing display
 		ZoneId timeZone = ZoneId.of(configuration.getArgument(Argument.TIME_ZONE));
-		Console console = new Console(timeZone);
+		Printer printer = new Printer(timeZone);
+		Console console = new Console(printer);
 
 		//--- Alerting specific configuration
 
 		// We basically read the configuration in order to define alerting rules
+		AlertPrintListener alertToStdOut = new AlertPrintListener(printer, System.out);
 		int alertReqPerSecThreshold = Integer.parseInt(
 				configuration.getArgument(Argument.ALERT_LOAD_THRESHOLD));
+		Consumer<AlertEvent<Integer>> alertListener = alert -> {
+				console.onAlert(alert);
+				alertToStdOut.accept(alert);
+			};
 		AlertConfig<Integer> throughputAlertConfig = new AlertConfig<>(
 				(stats, duration) -> (int) (stats.overall().requestCount() / duration.getSeconds()),
 				throughput -> throughput  >= alertReqPerSecThreshold,
 				"High traffic",
-				console::onAlert);
+				alertListener);
 		// Note: we could create many alert states with various configuration / thresholds / durations ...
 
 		//--- Initializing watching task
@@ -131,7 +141,7 @@ public class Main {
 		}
 		catch (ExecutionException e) {
 			// Is thrown from the 'reader' task
-			e.printStackTrace(System.err); // TODO: use some logging
+			handleThrowable(e);
 			awaitTermination(executorService);
 			console.destroy();
 		}
@@ -143,7 +153,7 @@ public class Main {
 		}
 		catch (Throwable t) {
 			reader.requestStop();
-			t.printStackTrace(System.err); // TODO: use some logging
+			handleThrowable(t);
 			awaitTermination(executorService);
 			console.destroy();
 		}
@@ -162,17 +172,19 @@ public class Main {
 	}
 
 	private static void badConfiguration(String reason) {
-		// TODO: use some logging
-		System.err.println("Bad configuration: " + reason);
+		System.err.println("Bad configuration: " + reason); // TODO: use some logging?
 		System.exit(1);
+	}
+
+	private static void handleThrowable(Throwable t) {
+		t.printStackTrace(System.err); // TODO: use some logging?
 	}
 
 	private static ScheduledExecutorService createExecutorService(int taskCount) {
 		Thread.currentThread().setName("main");
 		Thread.UncaughtExceptionHandler ueh = (Thread t, Throwable e) -> {
-				// TODO: use some logging
-				System.err.println("Error from thread " + t.getName() + ": " + e.getMessage());
-				e.printStackTrace(System.err);
+				handleThrowable(new RuntimeException(
+					"Error from thread " + t.getName() + ": " + e.getMessage(), e));
 			};
 		return Executors.newScheduledThreadPool(taskCount,
 			runnable -> {

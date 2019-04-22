@@ -27,23 +27,77 @@ Example log lines:
 * If you have a _Java Development Kit 8+_ and _Maven 3+_ installed, you can also run the following command:
 
 ```bash
-mvn install
+mvn clean install
 ```
 
 ## How to run
 
-If the project has not been built, the following scripts should build it first before to run it right away. But if a code update has been done, it would possibly use an the binary previously built. 
+If the project has not been built yet, the scripts would build it first before to run it right away. But if a code update has been done, it would possibly use the binary that was previously built and not take the changes into account. 
 
-* If you have _Docker_ installed, you can run the following command. 
+### Using Docker
+
+If you have _Docker_ installed, the fastest way is to run the application is using the following command: 
 
 ```bash
 ./docker_run.sh
 ```
 
-* Otherwise, you would need a _Java Runtime Environment version 8+_ installed. The last `-h` aims at printing some help about the program usage. 
+It will assume that the access log file is located at `/tmp/access.log` on your host. For any other usage, you can build an image based on the `Dockerfile`:
 
 ```bash
-./run.sh
+docker build -t lnc .
+docker run -it --rm -v /tmp:/tmp lnc
+``` 
+
+The second command in the example above should be adapted depending on your needs (command line arguments, environment variables, volumes, ...).
+
+### Using the JRE
+
+Otherwise, you would need a _Java Runtime Environment version 8+_ installed. With the `run.sh` script, you can provide any command line argument. In the example below the last argument `-h` aims at printing some help about the program usage. It can be replaced by other arguments. 
+
+```bash
+./run.sh -h
+```
+
+## Usage
+
+Use `-h` as an argument in order to get details about all available arguments. It would output all command line flags, supported environment variables and property names. In this case, the program exists as soon as it printed the information.
+
+Without `-h`, a terminal screen appears and prints:
+
+* The overall metrics (accumulated since the first access log line to the latest)
+* The latest metrics (duration the last 10 seconds by default)
+* The alert events from the most recent to the oldest
+
+You can quit the program anytime by pressing the _escape_ key or the _q_ key. 
+
+All printed dates are in the ISO format. The metrics may be printed with SI symbols.
+
+The alerting events printing follow the following patterns:
+
+* When an alert is raised:
+
+```
+[${raisedate}]! RAISED ! "${description}" hits = {${value}} 
+``` 
+
+* When an alert is released:
+
+```
+[${releasedate}]!RELEASED! "${description}" hits = {${value}} since [${raisedate}] 
+``` 
+
+Here are some example of alerting events appearing on the screen:
+
+```
+[2018-05-09T18:00:41]! RAISED ! "High traffic" hits = {3}
+[2018-05-09T18:00:44]!RELEASED! "High traffic" hits = {3} since [2018-05-09T18:00:41]
+```
+
+The alert events are also printed automatically to the standard output. You can then pipe the execution of the program so that the alerting events information get stored in an alert log file, like this:
+
+```bash
+./run.sh >> alerts.log
 ```
 
 ## Configuration
@@ -60,7 +114,9 @@ Here are some example of use:
 * Use `-h` as an argument in order to get details about all available arguments. It also outputs all command line
  flags, used environment variables and property names. The program exists as soon as it printed the information.
 * Use `-f <access_log_file>` in order to provide the location for the access log file to be read.
-* _Many more parameters are supported..._
+* Use `-l <threshold> -a <duration>` in order to update the default alerting configuration.
+
+TODO: paste the `-h` result here
 
 ## Requirements
 
@@ -89,6 +145,7 @@ incoming lines (bound to time) of the access log file.
 * For both overall and section related statistics, we display the request count and the byte count transfered.
 * For both overall and section related statistics, we display the throughput per second and the bandwidth per second.
 * Use a _curses like_ library for console output (in order to refresh overall and latest stats)
+* Alerts events are sent to the standard output in a format that is easy to parse. It makes easy to log alerts from one program start to another.
 
 ## Technical remarks
 
@@ -132,6 +189,7 @@ the JAR file manifest.
 |1.0|Statistics sent to the standard output stream|
 |2.0|Handling of alerts sent to the standard error stream|
 |3.0|Use of curses in a terminal|
+|4.0|Alert events sent to standard output and triggers some commands|
 
 ## License
 

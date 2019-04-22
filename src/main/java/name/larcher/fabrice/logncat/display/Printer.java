@@ -20,9 +20,9 @@ import java.util.Objects;
 /**
  * Printing utilities.
  */
-final class Printer {
+public final class Printer {
 
-	Printer(ZoneId timeZone) {
+	public Printer(ZoneId timeZone) {
 		this.timeZone = Objects.requireNonNull(timeZone);
 	}
 

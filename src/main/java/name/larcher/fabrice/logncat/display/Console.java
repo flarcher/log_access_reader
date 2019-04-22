@@ -12,8 +12,8 @@ import com.googlecode.lanterna.screen.Screen;
 import com.googlecode.lanterna.screen.TerminalScreen;
 import com.googlecode.lanterna.terminal.DefaultTerminalFactory;
 import com.googlecode.lanterna.terminal.Terminal;
-import name.larcher.fabrice.logncat.alert.AlertEvent;
 import name.larcher.fabrice.logncat.DurationConverter;
+import name.larcher.fabrice.logncat.alert.AlertEvent;
 import name.larcher.fabrice.logncat.stat.Statistic;
 import name.larcher.fabrice.logncat.stat.StatisticContext;
 
@@ -21,7 +21,6 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.time.Duration;
 import java.time.Instant;
-import java.time.ZoneId;
 import java.util.*;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.stream.Collectors;
@@ -31,8 +30,8 @@ import java.util.stream.Collectors;
  */
 public class Console implements Closeable {
 
-	public Console(ZoneId timeZone) {
-		this.printer = new Printer(timeZone);
+	public Console(Printer printer) {
+		this.printer = Objects.requireNonNull(printer);
 		try {
 			Terminal terminal = new DefaultTerminalFactory().createTerminal();
 			screen = new TerminalScreen(terminal);
@@ -114,8 +113,8 @@ public class Console implements Closeable {
 				new TextCharacter('·', RECTANGLE_FOREGROUND_COLOR, RECTANGLE_BACKGROUND_COLOR));
 		tg.setModifiers(EnumSet.of(SGR.UNDERLINE, SGR.BOLD));
 		tg.putString(4, nextRow, context.isDynamic()
-				? " Overall (" + DurationConverter.toString(duration) + ")"
-				: " Latest " + DurationConverter.toString(duration));
+				? "Overall (" + DurationConverter.toString(duration) + ")"
+				: "Latest " + DurationConverter.toString(duration));
 		tg.clearModifiers();
 		tg.putString(RECTANGLE_WIDTH - (2 * METRICS_WIDTH), nextRow, "Count");
 		tg.putString(RECTANGLE_WIDTH - METRICS_WIDTH, nextRow, "Bytes");
@@ -194,8 +193,6 @@ public class Console implements Closeable {
 	}
 
 	private static RuntimeException handleIOException(IOException e) {
-		// TODO: use logging
-		e.printStackTrace(System.err);
 		throw new RuntimeException(e);
 	}
 
