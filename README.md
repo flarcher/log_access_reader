@@ -32,18 +32,18 @@ mvn install
 
 ## How to run
 
-After a build,
+If the project has not been built, the following scripts should build it first before to run it right away. But if a code update has been done, it would possibly use an the binary previously built. 
 
-* If you have _Docker_ installed, you can run the following command (if the project hasn't been built, it will build it automatically):
+* If you have _Docker_ installed, you can run the following command. 
 
 ```bash
 ./docker_run.sh
 ```
 
-* Otherwise, if you have a _Java Runtime Environment version 8+_ installed, you can run the following command. The last `-h` aims at printing some help about the program usage. 
+* Otherwise, you would need a _Java Runtime Environment version 8+_ installed. The last `-h` aims at printing some help about the program usage. 
 
 ```bash
-java -jar target/log-n-cat-*.jar
+./run.sh
 ```
 
 ## Configuration
@@ -88,6 +88,7 @@ But the value can still be changed depending on *LogFileDateExt* value.
 incoming lines (bound to time) of the access log file.
 * For both overall and section related statistics, we display the request count and the byte count transfered.
 * For both overall and section related statistics, we display the throughput per second and the bandwidth per second.
+* Use a _curses like_ library for console output (in order to refresh overall and latest stats)
 
 ## Technical remarks
 
@@ -103,7 +104,6 @@ incoming lines (bound to time) of the access log file.
 
 ## Next steps
 
-* Use a _curses_ like library for console output
 * Use a logging library like _logBack_ with an output towards a log file whose path can be configured.
 * Provide JMX metrics. Especially about the maximum statictic's section count and the size of the time bucket's internal map.
 * Makes possible to issue a configured command call when an alert is raised/released. 

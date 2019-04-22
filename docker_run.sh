@@ -18,7 +18,7 @@ JAR_FILE="$(ls -ld target/log-n-cat-*.jar 2>/dev/null | cut -d' ' -f9)"
 if test -z $JAR_FILE
 then
     # Builds the project
-    docker_build.sh
+    sh docker_build.sh
 fi
 
 # Runs the Java application with:

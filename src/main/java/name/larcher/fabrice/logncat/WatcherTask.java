@@ -14,6 +14,7 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.*;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -25,21 +26,24 @@ class WatcherTask implements Runnable {
 	WatcherTask(
 			Statistic overallStats,
 			StatisticTimeBucketsFactory.StatisticTimeBuckets statsBuckets,
-			Function<Instant, String> contextFunction,
 			Runnable waiting,
+			Consumer<Instant> before,
+			Consumer<Instant> after,
 			Clock clock) {
 
 		this.overallStats = Objects.requireNonNull(overallStats);
-		this.contextFunction = Objects.requireNonNull(contextFunction);
 		this.timeBuckets = Objects.requireNonNull(statsBuckets);
 		this.waiting = Objects.requireNonNull(waiting);
+		this.before = Objects.requireNonNull(before);
+		this.after = Objects.requireNonNull(after);
 		this.clock = Objects.requireNonNull(clock);
 	}
 
 	private final Statistic overallStats;
 	private final StatisticTimeBucketsFactory.StatisticTimeBuckets timeBuckets;
-	private final Function<Instant, String> contextFunction;
 	private final Runnable waiting;
+	private final Consumer<Instant> before;
+	private final Consumer<Instant> after;
 	private final Clock clock;
 
 	//--- Display attributes (can change from one display to another)
@@ -86,15 +90,15 @@ class WatcherTask implements Runnable {
 	@Override
 	public void run() {
 		Instant instant = clock.instant();
+		before.accept(instant);
 		if (instant == null) {  // Can be null without traffic
 			waiting.run(); // Waiting for input
 		}
 		else {
 			long instantMillis = instant.toEpochMilli();
-			String date = contextFunction.apply(instant);
 
 			// Overall stats (does not need "latest" data)
-			overallStatsContext.notify(date, overallStats);
+			overallStatsContext.notify(overallStats);
 
 			List<? extends Statistic> latestStatisticsList = timeBuckets.reduceLatest(instantMillis, allDurations);
 			for (int i = 0; i < allDurations.size(); i++) {
@@ -104,7 +108,7 @@ class WatcherTask implements Runnable {
 				// Latest stats
 				StatisticContext latestStats = latestStatsByDuration.get(duration);
 				if (latestStats != null) {
-					latestStats.notify(date, stats);
+					latestStats.notify(stats);
 				}
 
 				// Alerting
@@ -116,5 +120,6 @@ class WatcherTask implements Runnable {
 				}
 			}
 		}
+		after.accept(instant);
 	}
 }

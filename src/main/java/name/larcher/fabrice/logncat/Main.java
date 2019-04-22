@@ -9,12 +9,13 @@ import name.larcher.fabrice.logncat.alert.AlertState;
 import name.larcher.fabrice.logncat.config.Argument;
 import name.larcher.fabrice.logncat.config.Configuration;
 import name.larcher.fabrice.logncat.config.DurationConverter;
-import name.larcher.fabrice.logncat.display.Printer;
+import name.larcher.fabrice.logncat.display.Console;
 import name.larcher.fabrice.logncat.read.AccessLogLine;
 import name.larcher.fabrice.logncat.read.AccessLogParser;
 import name.larcher.fabrice.logncat.read.AccessLogReadTask;
 import name.larcher.fabrice.logncat.stat.*;
 
+import java.io.PrintStream;
 import java.nio.file.Paths;
 import java.time.Clock;
 import java.time.Duration;
@@ -24,6 +25,7 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.*;
+import java.util.function.BiConsumer;
 
 /**
  * Program entry point.
@@ -35,7 +37,7 @@ public class Main {
 		//--- Asking for help?
 		List<String> arguments = Arrays.asList(args);
 		if (arguments.contains("-h")) {
-			Printer.printHelp();
+			printHelp();
 			System.exit(0);
 			return;
 		}
@@ -50,9 +52,6 @@ public class Main {
 			return;
 		}
 
-		ZoneId timeZone = ZoneId.of(configuration.getArgument(Argument.TIME_ZONE));
-		Printer printer = new Printer(timeZone);
-
 		Duration mainIdle = DurationConverter.fromString(configuration.getArgument(Argument.MINIMUM_DURATION));
 		Duration latestStatsDuration = checkDuration(configuration, Argument.STATISTICS_LATEST_DURATION, mainIdle);
 		Duration displayRefreshDuration = checkDuration(configuration, Argument.DISPLAY_PERIOD_DURATION, mainIdle);
@@ -63,18 +62,6 @@ public class Main {
 		int topSectionCount = Integer.parseInt(configuration.getArgument(Argument.TOP_SECTION_COUNT));
 		int maxSectionCountRatio = Integer.parseInt(configuration.getArgument(Argument.MAX_SECTION_COUNT_RATIO));
 		int maxSectionCount = topSectionCount * maxSectionCountRatio;
-
-		//--- Alerting specific configuration
-
-		// We basically read the configuration in order to define alerting rules
-		int alertReqPerSecThreshold = Integer.parseInt(
-				configuration.getArgument(Argument.ALERT_LOAD_THRESHOLD));
-		AlertConfig<Integer> throughputAlertConfig = new AlertConfig<>(
-				(stats, duration) -> (int) (stats.overall().requestCount() / duration.getSeconds()),
-				throughput -> throughput  >= alertReqPerSecThreshold,
-				"High traffic generated an alert - hits = %s",
-				printer::printAlert);
-		// Note: we could create many alert states with various configuration / thresholds / durations ...
 
 		//--- Initializing the reader and its listeners
 
@@ -93,16 +80,32 @@ public class Main {
 				Paths.get(configuration.getArgument(Argument.ACCESS_LOG_FILE_LOCATION)), // File location
 				DurationConverter.fromString(configuration.getArgument(Argument.READ_IDLE_DURATION)).toMillis());
 
+		//--- Initializing display
+		ZoneId timeZone = ZoneId.of(configuration.getArgument(Argument.TIME_ZONE));
+		Console console = new Console(timeZone);
+
+		//--- Alerting specific configuration
+
+		// We basically read the configuration in order to define alerting rules
+		int alertReqPerSecThreshold = Integer.parseInt(
+				configuration.getArgument(Argument.ALERT_LOAD_THRESHOLD));
+		AlertConfig<Integer> throughputAlertConfig = new AlertConfig<>(
+				(stats, duration) -> (int) (stats.overall().requestCount() / duration.getSeconds()),
+				throughput -> throughput  >= alertReqPerSecThreshold,
+				"High traffic generated an alert - hits = %s",
+				console::onAlert);
+		// Note: we could create many alert states with various configuration / thresholds / durations ...
+
 		//--- Initializing watching task
 
 		// The program's clock that adapts its time according to the input (where each entry is bound to the time)
 		Clock clock = new ReaderClock(timeZone, displayRefreshDuration, latestLogLineConsumer);
 		// Listener for all statistics to be displayed
-		StatisticContext.StatisticListener statsListener = printer::printStats;
+		BiConsumer<StatisticContext, Statistic> statsListener = console::onStat;
 		// The watcher task that display the information
 		WatcherTask watcherTask = new WatcherTask(
 				overallStats, buckets,
-				printer::formatInstant, printer::noLine,
+				console::empty, console::beforePrint, console::afterPrint,
 				clock);
 		watcherTask.setOverallStats(StatisticContext.createOverallContext(
 				latestLogLineConsumer::getFirst,
@@ -114,15 +117,16 @@ public class Main {
 		watcherTask.setAlertStates(Collections.singletonList(new AlertState<>(throughputAlertConfig, alertingDuration)));
 
 		//--- Starting the engine...
-		Printer.printBeforeRun(displayRefreshDuration);
-		ScheduledExecutorService executorService = createExecutorService();
+		ScheduledExecutorService executorService = createExecutorService(3);
+		console.init(displayRefreshDuration, () -> {
+			reader.requestStop();
+			executorService.shutdown();
+		});
 		try {
 			// Stats/alerts printing done on a regular basis
-			long displayPeriodMillis = displayRefreshDuration.toMillis();
-			long alertingDurationMillis = alertingDuration.toMillis();
-			executorService.scheduleAtFixedRate(watcherTask,
-					Math.min(displayPeriodMillis, alertingDurationMillis),
-					displayPeriodMillis, TimeUnit.MILLISECONDS);
+			executorService.scheduleAtFixedRate(watcherTask, 200, displayRefreshDuration.toMillis(), TimeUnit.MILLISECONDS);
+			// User's input read
+			executorService.scheduleWithFixedDelay(console::readInput, 200, 100, TimeUnit.MILLISECONDS);
 			// Reader (always running until the end of the program)
 			executorService.submit(reader).get(); // Does not return until any interrupt request
 		}
@@ -130,16 +134,19 @@ public class Main {
 			// Is thrown from the 'reader' task
 			e.printStackTrace(System.err); // TODO: use some logging
 			awaitTermination(executorService);
+			console.destroy();
 		}
 		catch (InterruptedException e) {
 			reader.requestStop();
 			Thread.currentThread().interrupt();
 			awaitTermination(executorService);
+			console.destroy();
 		}
 		catch (Throwable t) {
 			reader.requestStop();
 			t.printStackTrace(System.err); // TODO: use some logging
 			awaitTermination(executorService);
+			console.destroy();
 		}
 	}
 
@@ -161,14 +168,14 @@ public class Main {
 		System.exit(1);
 	}
 
-	private static ScheduledExecutorService createExecutorService() {
+	private static ScheduledExecutorService createExecutorService(int taskCount) {
 		Thread.currentThread().setName("main");
 		Thread.UncaughtExceptionHandler ueh = (Thread t, Throwable e) -> {
 				// TODO: use some logging
 				System.err.println("Error from thread " + t.getName() + ": " + e.getMessage());
 				e.printStackTrace(System.err);
 			};
-		return Executors.newScheduledThreadPool(2,
+		return Executors.newScheduledThreadPool(taskCount,
 			runnable -> {
 				Thread t = new Thread(runnable);
 				t.setUncaughtExceptionHandler(ueh);
@@ -185,6 +192,26 @@ public class Main {
 				executorService.shutdownNow();
 			}
 		}
+	}
+
+	private static void printHelp() {
+		PrintStream printer = System.out;
+		printer.println("LOG'n-CAT \uD83D\uDC31");
+		printer.println(" Prints statistics and notifies alerts by reading access log files.");
+		printer.println();
+		printer.println("Possible arguments are:");
+		printer.println();
+		Arrays.stream(Argument.values())
+				.sorted(Comparator.comparing(Argument::getPropertyName))
+				.forEach( arg -> {
+					String name = arg.name().replaceAll("_", " ").toLowerCase();
+					printer.println("-" + arg.getCommandOption() + " <" + name + ">");
+					printer.println("  " + arg.getDescription());
+					printer.println("  Can be set using the environment variable " + arg.getEnvironmentParameter());
+					printer.println("  Can be set as the property " + arg.getPropertyName() + " in the configuration file");
+					printer.println("  The default value is «" + arg.getDefaultValue() + "»");
+					printer.println();
+				});
 	}
 
 }

@@ -9,20 +9,12 @@ import javax.annotation.concurrent.Immutable;
 import java.time.Duration;
 import java.util.Comparator;
 import java.util.Objects;
+import java.util.function.BiConsumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
 @Immutable
 public final class StatisticContext {
-
-	@FunctionalInterface
-	public interface StatisticListener {
-
-		void accept(
-			StatisticContext context,
-			Statistic value,
-			String date);
-	}
 
 	private static <I, O> Supplier<O> convertSupplier(Supplier<I> supplier, Function<I, O> function) {
 		return () -> {
@@ -37,7 +29,7 @@ public final class StatisticContext {
 			Function<T, Long> toMillis,
 			int topSectionCount,
 			Comparator<Statistic.ScopedStatistic> sectionComparator,
-			StatisticListener listener) {
+			BiConsumer<StatisticContext, Statistic> listener) {
 		return createOverallContext(
 			convertSupplier(sinceGetter, toMillis),
 			convertSupplier(untilGetter, toMillis),
@@ -49,7 +41,7 @@ public final class StatisticContext {
 			Supplier<Long> untilMillisGetter,
 			int topSectionCount,
 			Comparator<Statistic.ScopedStatistic> sectionComparator,
-			StatisticListener listener) {
+			BiConsumer<StatisticContext, Statistic> listener) {
 		return new StatisticContext(
 				() -> {
 					Long since = sinceMillisGetter.get();
@@ -72,7 +64,7 @@ public final class StatisticContext {
 			Duration duration,
 			int topSectionCount,
 			Comparator<Statistic.ScopedStatistic> sectionComparator,
-			StatisticListener listener) {
+			BiConsumer<StatisticContext, Statistic> listener) {
 		return new StatisticContext(() -> duration, topSectionCount, sectionComparator, listener, false);
 	}
 
@@ -80,7 +72,7 @@ public final class StatisticContext {
 			Supplier<Duration> durationGetter,
 			int topSectionCount,
 			Comparator<Statistic.ScopedStatistic> sectionComparator,
-			StatisticListener listener,
+			BiConsumer<StatisticContext, Statistic> listener,
 			boolean isDynamic) {
 
 		this.durationGetter = Objects.requireNonNull(durationGetter);
@@ -93,7 +85,7 @@ public final class StatisticContext {
 	private final Supplier<Duration> durationGetter;
 	private final int topSectionCount;
 	private final Comparator<Statistic.ScopedStatistic> sectionComparator;
-	private final StatisticListener listener;
+	private final BiConsumer<StatisticContext, Statistic> listener;
 	private final boolean isDynamic;
 
 	public boolean isDynamic() {
@@ -112,7 +104,7 @@ public final class StatisticContext {
 		return sectionComparator;
 	}
 
-	public void notify(String date, Statistic statistic) {
-		listener.accept(this, statistic, date);
+	public void notify(Statistic statistic) {
+		listener.accept(this, statistic);
 	}
 }
