@@ -94,10 +94,10 @@ Here are some example of alerting events appearing on the screen:
 [2018-05-09T18:00:44]!RELEASED! "High traffic" hits = {3} since [2018-05-09T18:00:41]
 ```
 
-The alert events are also printed automatically to the standard output. You can then pipe the execution of the program so that the alerting events information get stored in an alert log file, like this:
+By default, the alert events are printed automatically to the standard output. With the option `-o <alerts_log_file>`, they are appended into the given file;
 
 ```bash
-./run.sh >> alerts.log
+./run.sh -o /tmp/alerts.log
 ```
 
 ## Configuration
@@ -146,6 +146,7 @@ incoming lines (bound to time) of the access log file.
 * For both overall and section related statistics, we display the throughput per second and the bandwidth per second.
 * Use a _curses like_ library for console output (in order to refresh overall and latest stats)
 * Alerts events are sent to the standard output in a format that is easy to parse. It makes easy to log alerts from one program start to another.
+* With the `-o <alerts_log_file>`, we can provide a file path of a file that stores all alert events.
 
 ## Technical remarks
 

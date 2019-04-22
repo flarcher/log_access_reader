@@ -209,6 +209,20 @@ public enum Argument {
 		}
 	},
 
+	ALERTS_FILE("ALERTS_FILE", 'o',
+			"Location of the alerts file (none by default)") {
+
+		@Override
+		public String getDefaultValue() {
+			return ""; // Means none
+		}
+
+		@Override
+		boolean isValid(String value) {
+			return value.isEmpty() || canRead(value);
+		}
+	},
+
 	;
 
 	private static String getTmpDirectory() {

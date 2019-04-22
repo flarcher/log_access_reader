@@ -17,6 +17,7 @@ import name.larcher.fabrice.logncat.read.AccessLogParser;
 import name.larcher.fabrice.logncat.read.AccessLogReadTask;
 import name.larcher.fabrice.logncat.stat.*;
 
+import java.io.IOException;
 import java.io.PrintStream;
 import java.nio.file.Paths;
 import java.time.Clock;
@@ -91,12 +92,21 @@ public class Main {
 		//--- Alerting specific configuration
 
 		// We basically read the configuration in order to define alerting rules
-		AlertPrintListener alertToStdOut = new AlertPrintListener(printer, System.out);
+		AlertPrintListener alertEventPrinter;
+		try {
+			alertEventPrinter = new AlertPrintListener(printer,
+				configuration.getArgument(Argument.ALERTS_FILE));
+		} catch (IOException e) {
+			console.destroy();
+			handleThrowable(e);
+			System.exit(1);
+			return;
+		}
 		int alertReqPerSecThreshold = Integer.parseInt(
 				configuration.getArgument(Argument.ALERT_LOAD_THRESHOLD));
 		Consumer<AlertEvent<Integer>> alertListener = alert -> {
 				console.onAlert(alert);
-				alertToStdOut.accept(alert);
+				alertEventPrinter.accept(alert);
 			};
 		AlertConfig<Integer> throughputAlertConfig = new AlertConfig<>(
 				(stats, duration) -> (int) (stats.overall().requestCount() / duration.getSeconds()),
@@ -142,18 +152,17 @@ public class Main {
 		catch (ExecutionException e) {
 			// Is thrown from the 'reader' task
 			handleThrowable(e);
-			awaitTermination(executorService);
-			console.destroy();
 		}
 		catch (InterruptedException e) {
-			reader.requestStop();
 			Thread.currentThread().interrupt();
-			awaitTermination(executorService);
-			console.destroy();
+			reader.requestStop();
 		}
 		catch (Throwable t) {
-			reader.requestStop();
 			handleThrowable(t);
+			reader.requestStop();
+		}
+		finally {
+			alertEventPrinter.close();
 			awaitTermination(executorService);
 			console.destroy();
 		}
