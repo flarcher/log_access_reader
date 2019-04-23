@@ -32,6 +32,7 @@ public class AccessLogReadTaskTest {
 				Collections.singletonList(line -> countDownLatch.countDown()),
 				PARSER,
 				TEST_LOG_FILE_PATH,
+				() -> {},
 				100L);
 		ExecutorService executorService = Executors.newSingleThreadExecutor();
 		Assert.assertFalse(reader.isRunning());
@@ -69,6 +70,7 @@ public class AccessLogReadTaskTest {
 				}),
 				PARSER,
 				TEST_LOG_FILE_PATH,
+				() -> {},
 				idleWaitMillis);
 		Assert.assertFalse(reader.isRunning());
 		executorService.submit(reader);

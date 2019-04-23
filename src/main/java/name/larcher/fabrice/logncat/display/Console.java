@@ -73,7 +73,8 @@ public class Console implements Closeable {
 		for (String line : Printer.printBeforeRun(refreshPeriodMillis)) {
 			tg.putString(0, nextRow++, line);
 		}
-		tg.putString(4, nextRow++, "Latest statistics @ " + printer.formatInstant(instant));
+		tg.putString(0, nextRow++, " Latest statistics @ " + printer.formatInstant(instant));
+		nextRow++;
 		// ... stats are printed from calls to `onStat`
 	}
 

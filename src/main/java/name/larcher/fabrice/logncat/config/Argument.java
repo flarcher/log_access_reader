@@ -239,7 +239,7 @@ public enum Argument {
 
 	private static boolean canRead(String filePath) {
 		Path path = getPath(filePath);
-		return path != null && Files.isRegularFile(path) && Files.isReadable(path);
+		return path != null && !Files.isDirectory(path) && Files.isReadable(path);
 	}
 
 	private static boolean isPositiveInteger(String intStr) {

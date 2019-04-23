@@ -7,4 +7,5 @@ docker run --rm --name lnc-build \
     -w /usr/src/mymaven \
     -v "$HOME/.m2":/root/.m2 \
     maven:3-jdk-8-slim \
+    mkdir -p /tmp; \
     mvn clean install

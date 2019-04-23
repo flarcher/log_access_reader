@@ -16,9 +16,9 @@ import java.nio.file.StandardOpenOption;
 import java.util.Objects;
 import java.util.function.Consumer;
 
-public class AlertPrintListener implements Consumer<AlertEvent<?>>, Closeable {
+public class AlertPrinter implements Consumer<AlertEvent<?>>, Closeable {
 
-	public AlertPrintListener(Printer printer, String streamConfiguration) throws IOException {
+	public AlertPrinter(Printer printer, String streamConfiguration) throws IOException {
 
 		if (streamConfiguration == null || streamConfiguration.isEmpty()) {
 			this.stream = System.out;
@@ -28,7 +28,7 @@ public class AlertPrintListener implements Consumer<AlertEvent<?>>, Closeable {
 			this.stream = new PrintStream(
 					Files.newOutputStream(Paths.get(streamConfiguration),
 						StandardOpenOption.CREATE, StandardOpenOption.APPEND, StandardOpenOption.WRITE),
-					true);
+					false);
 			this.toBeClosed = true;
 		}
 		this.printer = Objects.requireNonNull(printer);
@@ -41,6 +41,9 @@ public class AlertPrintListener implements Consumer<AlertEvent<?>>, Closeable {
 	@Override
 	public void accept(AlertEvent<?> alertEvent) {
 		stream.println(printer.printAlert(alertEvent));
+		if (toBeClosed) {
+			stream.flush();
+		}
 	}
 
 	@Override

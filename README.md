@@ -18,17 +18,29 @@ Example log lines:
 
 ## How to build
 
-* In order to use _Docker_ (without having to install _Maven_ or _Java_), please run the script `build_docker.sh`. It will try to use your local _maven repository_ in `$HOME/.m2` so that subsequent builds will be faster.
+### Using Docker
+
+In order to use _Docker_ (without having to install _Maven_ or _Java_), please run the script `build_docker.sh`. It will try to use your local _maven repository_ in `$HOME/.m2` so that subsequent builds will be faster.
 
 ```bash
 ./docker_build.sh
 ```
 
-* If you have a _Java Development Kit 8+_ and _Maven 3+_ installed, you can also run the following command:
+### Using the JRE
+
+If you have a _Java Development Kit 8+_ and _Maven 3+_ installed, you can also run the following command:
 
 ```bash
 mvn clean install
 ```
+
+### Automated tests
+
+The build includes the run of many unit tests. The code of the tests code is located in the directory `src/test` (while the program's own code in is `src/main`.
+
+The test of the class `MainAlertingTest` is launching almost the whole program. It does not include the console user interface, for better performance and compatibility (with the build context). It has still a good code coverage about the alerting mechanism. **Warning:** this class requires an access to the temporary directory of the file system in order to create temporary log files.
+
+Other test classes have a scope linked to one or two classes.
 
 ## How to run
 
@@ -61,7 +73,17 @@ Otherwise, you would need a _Java Runtime Environment version 8+_ installed. Wit
 
 ## Usage
 
+### Getting help
+
 Use `-h` as an argument in order to get details about all available arguments. It would output all command line flags, supported environment variables and property names. In this case, the program exists as soon as it printed the information.
+
+### Input file location
+
+Without `-h`, the program will read as fast as possible an input access log file.
+
+By default, the program searches for a file `/tmp/access.log` as the access log file. You can override the file location with hte arguments `-f <log_file_path>`.
+
+### Statistics
 
 Without `-h`, a terminal screen appears and prints:
 
@@ -72,6 +94,8 @@ Without `-h`, a terminal screen appears and prints:
 You can quit the program anytime by pressing the _escape_ key or the _q_ key. 
 
 All printed dates are in the ISO format. The metrics may be printed with SI symbols.
+
+### Alerting
 
 The alerting events printing follow the following patterns:
 
@@ -100,7 +124,7 @@ By default, the alert events are printed automatically to the standard output. W
 ./run.sh -o /tmp/alerts.log
 ```
 
-## Configuration
+### Configuration
 
 The arguments can be provided in the following ways, ordered by priority:
 
@@ -115,8 +139,94 @@ Here are some example of use:
  flags, used environment variables and property names. The program exists as soon as it printed the information.
 * Use `-f <access_log_file>` in order to provide the location for the access log file to be read.
 * Use `-l <threshold> -a <duration>` in order to update the default alerting configuration.
+* Use `-o <alerts_log_file>` in order to specify an output file for alert events.
 
-TODO: paste the `-h` result here
+Here is the output of the program with the `-h` argument:
+
+```
+LOG'n-CAT 🐱
+ Prints statistics and notifies alerts by reading access log files.
+
+Possible arguments are:
+
+-l <alert load threshold>
+  Threshold for raising an alert related to the load. The value is the request count per second.
+  Can be set using the environment variable LNC_ALERT_LOAD_THRESHOLD
+  Can be set as the property alert.load.threshold in the configuration file
+  The default value is «10»
+
+-a <alerting duration>
+  Time duration over the latest statistics used for checking alerting thresholds
+  Can be set using the environment variable LNC_ALERT_PERIOD
+  Can be set as the property alert.period in the configuration file
+  The default value is «2m»
+
+-o <alerts file>
+  Location of the alerts file (none by default)
+  Can be set using the environment variable LNC_ALERTS_FILE
+  Can be set as the property alerts.file in the configuration file
+  The default value is «»
+
+-c <configuration file location>
+  Location of the properties configuration file
+  Can be set using the environment variable LNC_CONFIG_FILE
+  Can be set as the property config.file in the configuration file
+  The default value is «/tmp/lnc.properties»
+
+-d <date time format>
+  The access log date-time format described with the Java convention (not in the LogFileDateExt format)
+  Can be set using the environment variable LNC_DATE_TIME_FORMAT
+  Can be set as the property date.time.format in the configuration file
+  The default value is «dd/MMM/yyyy:HH:mm:ss Z»
+
+-p <display period duration>
+  Statistics refresh period in millis
+  Can be set using the environment variable LNC_DISPLAY_PERIOD_DURATION
+  Can be set as the property display.period.duration in the configuration file
+  The default value is «1s»
+
+-f <access log file location>
+  Location of the HTTP access log file
+  Can be set using the environment variable LNC_LOG_FILE
+  Can be set as the property log.file in the configuration file
+  The default value is «/tmp/access.log»
+
+-r <max section count ratio>
+  Maximum section count ratio. The result of this value multiplied with the 'top section count' is the maximum count of sections held in memory in statistics (technical limit in order to cap memory usage)
+  Can be set using the environment variable LNC_MAX_COUNT_RATIO
+  Can be set as the property max.count.ratio in the configuration file
+  The default value is «10»
+
+-m <minimum duration>
+  Minimum duration of statistics aggregation. The shorter it is, the bigger will be the memory comsumption but better will be the statistics precision and the alerts responsiveness.
+  Can be set using the environment variable LNC_MINIMUM_DURATION
+  Can be set as the property minimum.duration in the configuration file
+  The default value is «0.1s»
+
+-w <read idle duration>
+  Maximum idle time in the access log reading loop
+  Can be set using the environment variable LNC_READ_IDLE
+  Can be set as the property read.idle in the configuration file
+  The default value is «0.01s»
+
+-s <statistics latest duration>
+  Statistics refresh period in millis
+  Can be set using the environment variable LNC_STATS_DURATION
+  Can be set as the property stats.duration in the configuration file
+  The default value is «10s»
+
+-z <time zone>
+  IANA Timezone ID to be used. Uses the system's timezone if not provided.
+  Can be set using the environment variable LNC_TIME_ZONE
+  Can be set as the property time.zone in the configuration file
+  The default value is «Europe/Paris»
+
+-t <top section count>
+  Top sections count for display
+  Can be set using the environment variable LNC_TOP_COUNT
+  Can be set as the property top.count in the configuration file
+  The default value is «10»
+```
 
 ## Requirements
 

@@ -30,9 +30,9 @@ public final class Printer {
 
 	static List<String> printBeforeRun(Duration refreshPeriodMillis) {
 		return Arrays.asList(
-				"You started LOG'n-CAT «^·_·^»", //\uD83D\uDC31",
-				"Stats will be printed each " + DurationConverter.toString(refreshPeriodMillis),
-				"You can quit by pressing <Escape> or 'q'");
+				" You started LOG'n-CAT «^·_·^»", //\uD83D\uDC31",
+				" Stats will be printed each " + DurationConverter.toString(refreshPeriodMillis),
+				" You can quit by pressing <Escape> or 'q'");
 	}
 
 	private static String getSI(long value) {

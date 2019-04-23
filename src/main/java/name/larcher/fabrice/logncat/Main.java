@@ -9,7 +9,7 @@ import name.larcher.fabrice.logncat.alert.AlertEvent;
 import name.larcher.fabrice.logncat.alert.AlertState;
 import name.larcher.fabrice.logncat.config.Argument;
 import name.larcher.fabrice.logncat.config.Configuration;
-import name.larcher.fabrice.logncat.display.AlertPrintListener;
+import name.larcher.fabrice.logncat.display.AlertPrinter;
 import name.larcher.fabrice.logncat.display.Console;
 import name.larcher.fabrice.logncat.display.Printer;
 import name.larcher.fabrice.logncat.read.AccessLogLine;
@@ -23,10 +23,7 @@ import java.nio.file.Paths;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.ZoneId;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.List;
+import java.util.*;
 import java.util.concurrent.*;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
@@ -37,6 +34,16 @@ import java.util.function.Consumer;
 public class Main {
 
 	public static void main(String[] args) {
+		Main main = new Main();
+		main.run(args, (alert) -> {}, true);
+	}
+
+	/**
+	 * Runs the program.
+	 * @param args Command line arguments.
+	 * @param onAlert Alert listener (for testing purpose)
+	 */
+	public void run(String[] args, Consumer<AlertEvent<?>> onAlert, boolean enableConsole) {
 
 		//--- Asking for help?
 		List<String> arguments = Arrays.asList(args);
@@ -78,35 +85,37 @@ public class Main {
 		// More complex 2-step aggregation for getting metrics in some "duration of last entries"
 		StatisticTimeBucketsFactory.StatisticTimeBuckets buckets = StatisticTimeBucketsFactory.create(statsComparator, mainIdle, maxSectionCount);
 		// The reading runnable task
-		AccessLogReadTask reader = new AccessLogReadTask(
+		reader = new AccessLogReadTask(
 				Arrays.asList(overallStats, buckets, latestLogLineConsumer), // Listeners
 				new AccessLogParser(configuration.getArgument(Argument.DATE_TIME_FORMAT)), // Parser
 				Paths.get(configuration.getArgument(Argument.ACCESS_LOG_FILE_LOCATION)), // File location
+				() -> {},
 				DurationConverter.fromString(configuration.getArgument(Argument.READ_IDLE_DURATION)).toMillis());
 
 		//--- Initializing display
 		ZoneId timeZone = ZoneId.of(configuration.getArgument(Argument.TIME_ZONE));
 		Printer printer = new Printer(timeZone);
-		Console console = new Console(printer);
-
-		//--- Alerting specific configuration
-
-		// We basically read the configuration in order to define alerting rules
-		AlertPrintListener alertEventPrinter;
 		try {
-			alertEventPrinter = new AlertPrintListener(printer,
-				configuration.getArgument(Argument.ALERTS_FILE));
+			alertEventPrinter = new AlertPrinter(printer,
+					configuration.getArgument(Argument.ALERTS_FILE));
 		} catch (IOException e) {
-			console.destroy();
 			handleThrowable(e);
 			System.exit(1);
 			return;
 		}
+		console = enableConsole ? new Console(printer) : null;
+
+		//--- Alerting specific configuration
+
+		// We basically read the configuration in order to define alerting rules
 		int alertReqPerSecThreshold = Integer.parseInt(
 				configuration.getArgument(Argument.ALERT_LOAD_THRESHOLD));
 		Consumer<AlertEvent<Integer>> alertListener = alert -> {
-				console.onAlert(alert);
+				if (enableConsole) {
+					console.onAlert(alert);
+				}
 				alertEventPrinter.accept(alert);
+				onAlert.accept(alert);
 			};
 		AlertConfig<Integer> throughputAlertConfig = new AlertConfig<>(
 				(stats, duration) -> (int) (stats.overall().requestCount() / duration.getSeconds()),
@@ -120,11 +129,13 @@ public class Main {
 		// The program's clock that adapts its time according to the input (where each entry is bound to the time)
 		Clock clock = new ReaderClock(timeZone, displayRefreshDuration, latestLogLineConsumer);
 		// Listener for all statistics to be displayed
-		BiConsumer<StatisticContext, Statistic> statsListener = console::onStat;
+		BiConsumer<StatisticContext, Statistic> statsListener = enableConsole ? console::onStat : (ctx, s) -> {};
 		// The watcher task that display the information
 		WatcherTask watcherTask = new WatcherTask(
 				overallStats, buckets,
-				console::empty, console::beforePrint, console::afterPrint,
+				enableConsole ? console::empty : () -> {},
+				enableConsole ? console::beforePrint : (t) -> {},
+				enableConsole ? console::afterPrint : (t) -> {},
 				clock);
 		watcherTask.setOverallStats(StatisticContext.createOverallContext(
 				latestLogLineConsumer::getFirst,
@@ -136,16 +147,20 @@ public class Main {
 		watcherTask.setAlertStates(Collections.singletonList(new AlertState<>(throughputAlertConfig, alertingDuration)));
 
 		//--- Starting the engine...
-		ScheduledExecutorService executorService = createExecutorService(3);
-		console.init(displayRefreshDuration, () -> {
-			reader.requestStop();
-			executorService.shutdown();
-		});
+		executorService = createExecutorService(enableConsole ? 3 : 2);
+		if (enableConsole) {
+			console.init(displayRefreshDuration, () -> {
+				reader.requestStop();
+				executorService.shutdown();
+			});
+		}
 		try {
 			// Stats/alerts printing done on a regular basis
 			executorService.scheduleAtFixedRate(watcherTask, 200, displayRefreshDuration.toMillis(), TimeUnit.MILLISECONDS);
 			// User's input read
-			executorService.scheduleWithFixedDelay(console::readInput, 200, 100, TimeUnit.MILLISECONDS);
+			if (enableConsole) {
+				executorService.scheduleWithFixedDelay(console::readInput, 200, 100, TimeUnit.MILLISECONDS);
+			}
 			// Reader (always running until the end of the program)
 			executorService.submit(reader).get(); // Does not return until any interrupt request
 		}
@@ -164,7 +179,31 @@ public class Main {
 		finally {
 			alertEventPrinter.close();
 			awaitTermination(executorService);
+			Optional.ofNullable(console).ifPresent(Console::destroy);
+		}
+	}
+
+	private AccessLogReadTask reader;
+	private AlertPrinter alertEventPrinter;
+	private Console console;
+	private ScheduledExecutorService executorService;
+
+	/**
+	 * Stops the program correctly.
+	 * (for test purpose)
+	 */
+	public void stop() {
+		if (reader != null) {
+			reader.requestStop();
+		}
+		if (console != null) {
 			console.destroy();
+		}
+		if (executorService != null) {
+			awaitTermination(executorService);
+		}
+		if (alertEventPrinter != null) {
+			alertEventPrinter.close();
 		}
 	}
 

@@ -34,11 +34,13 @@ public class AccessLogReadTask implements Runnable {
 			List<Consumer<AccessLogLine>> listeners,
 			Function<String, AccessLogLine> parser,
 			Path accessLogFilePath,
+			Runnable isWaiting,
 			long idleWaitMillis) {
 		this.listeners = Collections.unmodifiableList(listeners);
 		this.accessLogFilePath = Objects.requireNonNull(accessLogFilePath);
 		this.idleWaitMillis = idleWaitMillis;
 		this.parser = Objects.requireNonNull(parser);
+		this.isWaiting = Objects.requireNonNull(isWaiting);
 	}
 
 	private final Function<String, AccessLogLine> parser;
@@ -46,6 +48,7 @@ public class AccessLogReadTask implements Runnable {
 	private final List<Consumer<AccessLogLine>> listeners;
 	private final Path accessLogFilePath;
 	private final AtomicBoolean running = new AtomicBoolean(false); // Will be updated concurrently
+	private final Runnable isWaiting;
 
 	@Override
 	public void run() {
@@ -88,6 +91,7 @@ public class AccessLogReadTask implements Runnable {
 
 				// We processed all incoming input and should wait for the next lines
 				try {
+					isWaiting.run();
 					Thread.sleep(idleWaitMillis);
 				} catch (InterruptedException e) {
 					currentThread.interrupt(); // In case it came from anywhere else

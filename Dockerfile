@@ -16,5 +16,5 @@ VOLUME /tmp
 ARG MAX_HEAP_SIZE=2G
 ENV JAVA_TOOL_OPTIONS "-Xms100M -Xmx${MAX_HEAP_SIZE:-2G}"
 
-ENTRYPOINT [ "java", "-agentlib:jdwp=transport=dt_socket,server=y,address=8000,suspend=n", "-Dcom.sun.management.jmxremote.port=9000", "-Dcom.sun.management.jmxremote.authenticate=false", "-Dcom.sun.management.jmxremote.ssl=false", "-Dfile.encoding=\"UTF-8\"", "-XX:+UnlockExperimentalVMOptions", "-XX:+UseCGroupMemoryLimitForHeap", "-jar", "/usr/src/myapp/lnc.jar" ]
+ENTRYPOINT [ "java", "-agentlib:jdwp=transport=dt_socket,server=y,address=8000,suspend=n", "-Dcom.sun.management.jmxremote.port=9000", "-Dcom.sun.management.jmxremote.authenticate=false", "-Dcom.sun.management.jmxremote.ssl=false", "-XX:+UnlockExperimentalVMOptions", "-XX:+UseCGroupMemoryLimitForHeap", "-jar", "/usr/src/myapp/lnc.jar" ]
 CMD [ "-f", "/tmp/access.log" ]
