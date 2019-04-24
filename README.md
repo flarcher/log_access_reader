@@ -36,15 +36,15 @@ mvn clean install
 
 ### Automated tests
 
-The build includes the run of many unit tests. The code of the tests code is located in the directory `src/test` (while the program's own code in is `src/main`.
+The build runs many unit tests. The tests code is located in the directory `src/test` (while the program's own code in is `src/main`).
 
-The test of the class `MainAlertingTest` is launching almost the whole program. It does not include the console user interface, for better performance and compatibility (with the build context). It has still a good code coverage about the alerting mechanism. **Warning:** this class requires an access to the temporary directory of the file system in order to create temporary log files.
+The tests of the class `MainAlertingTest` is covering almost the whole program (without the console user interface, for better performance and compatibility). It has still a good code coverage about the alerting mechanism. **Warning:** this class requires an access to the temporary directory of the file system in order to create temporary log files.
 
-Other test classes have a scope linked to one or two classes.
+Other test classes have a scope usually linked to only one or two classes.
 
 ## How to run
 
-If the project has not been built yet, the scripts would build it first before to run it right away. But if a code update has been done, it would possibly use the binary that was previously built and not take the changes into account. 
+If the project has not been built yet, the scripts would build it first before to run it right away. However, if a code update has been done, it would possibly use the binary that was previously built and not take the changes into account. 
 
 ### Using Docker
 
@@ -238,7 +238,7 @@ Possible arguments are:
 * Make sure all messages showing when alerting thresholds are crossed remain visible on the page for historical reasons. ✓
 * Write a test for the alerting logic. ✓
 * Explain how you’d improve on this application design. ✓ _(please see below in this file)_
-* If you have access to a linux docker environment, we'd love to be able to docker build and run your project! ✓ _(See script `docker_build.sh` and `docker_run.sh`)_ ✓
+* If you have access to a linux docker environment, we'd love to be able to docker build and run your project! ✓ _(See scripts `docker_build.sh`, `docker_run.sh` and the `Dockerfile`)_ ✓
 
 ## Additional features
 
@@ -254,45 +254,43 @@ But the value can still be changed depending on *LogFileDateExt* value.
 incoming lines (bound to time) of the access log file.
 * For both overall and section related statistics, we display the request count and the byte count transfered.
 * For both overall and section related statistics, we display the throughput per second and the bandwidth per second.
-* Use a _curses like_ library for console output (in order to refresh overall and latest stats)
-* Alerts events are sent to the standard output in a format that is easy to parse. It makes easy to log alerts from one program start to another.
-* With the `-o <alerts_log_file>`, we can provide a file path of a file that stores all alert events.
+* Use of a _curses like_ library for console output (in order to refresh overall and latest stats)
+* Alerts events are sent to the standard output or to a file (with `-o <alerts_log_file>`). The related format is easy to parse. It makes easy to log alerts from one program start to another.
 * It provides some simple JMX metrics, mainly related to memory usage. See the class `Monitoring`.
 
 ## Technical remarks
 
 * There is a simple thread-model (reader + display) handled by a single executor service that is managed in the `main` method of the `Main` class.
-* The code makes possible to configure multiple alerts for various predicates (thresholds on any metrics) over different time durations and any mix of them. Configuration of alerting might still be complex for the user, so no configuration meaning is available in this version of the program. But still, if some requirement about alerting changes, we can already change the default (static) behavior easily.
 * The code allows to easily use other comparison methods for the _top sections_ (currently using the request count for the comparison). It could be even made configurable (with some comparison method listing eventually).
 * It uses aggregation of information in order to reduce memory usage and memory allocation. The gathered information related to a single access log (class `AccessLogLine`) has only a short-term live in the application. The `AccessLogLine` instances are not stored in any collection but are aggregated as soon as possible in classes implementing `Consumer<AccessLogLine>` being `StaticticAggregator` and `TimeBuckets`. These classes aggregate access log information and each instance is related to a whole range of time.
 * With a given configuration, the memory consumption is intended to be stable over time. The 2-step aggregations (the first step running over the main idle time, then a second iterating for displayed statistics and alerts over 10 seconds by default) make sure to remove the oldest information (typically being more than 10s old with default configuration)
-* The metrics aggregation mechanism is shared by the statistics display mechanism and the alerting. This can help the maintenance. It also lowers the memory usage (since a single instance a the aggregating class is used for both mechanisms). See the class `TimeBuckets` for more details.
+* The metrics aggregation mechanism is shared by the statistics display mechanism and the alerting. This can help the maintenance. It also lowers the memory usage (since a single instance of the aggregating class is used for both purposes). See the class `TimeBuckets` for more details.
 * A limit about memory use can be configured. A possibly size-growing collection is related to the count of sections in statistics. A huge number of different sections in access log files can increase the memory consumption significantly. In order to address this, the arguments `MAX_SECTION_COUNT_RATIO` and `TOP_SECTION_COUNT` define a maximum count of sections held in memory, so that we can cap the memory consumption according to the gathering of _top sections statistics_.  The lower is the `MAX_SECTION_COUNT_RATIO` value, the bigger is the risk to miss some information related to the _top sections parts_ (however global statistics will stay true in all cases). About (only) the _top sections_ display, the trade-off between precision/correctness and memory consumption explains the reason why the parameter `MAX_SECTION_COUNT_RATIO` exists.
-* The code makes possible to support many durations for watching latest statistics. The same is also true for alerting. Furthermore, only the longest duration impacts the memory usage, not the count of durations involved. The use of many durations is not supported by the configuration mean however.
-* The alert configuration can be based on any metric (other than only the request throughput) and any condition. The class `AlertConfig` uses a `java.util.function.Predicate` instance for its definition, so that the code is flexible to any alert condition based on gathered data (represented by an instance of `Statistic`).
+* The code makes possible to support many durations for watching latest statistics. The same is also true for alerting. Furthermore, only the longest duration impacts the memory usage, not the count of durations involved. The use of many durations is not supported by any configuration mean however.
+* The alert configuration could extended so that it can be based on any metric (other than only the request throughput) and any condition. The class `AlertConfig` uses a `java.util.function.Predicate` instance for its definition, so that the code is flexible to any alert condition based on gathered data (represented by an instance of `Statistic`). The code makes possible to configure multiple alerts for various predicates (thresholds on any metrics) over different time durations and any mix of them. Configuration of alerting might still be complex for the user, and no such configuration mean is available in this version of the program. But still, if some requirement about alerting changes, we can already change the default (static) behavior easily.
+
 
 ## Next steps
 
 * Add some automatic testing about the retrieval of the latest statistics with a better code coverage.
 * Use a logging library like _logBack_ with an output towards a log file whose path can be configured.
 * Makes possible to issue a configured command call when an alert is raised/released. 
-* Provide stats in several periods of time like; _fromStart_, 1day, 1hour, 5min, 10sec
-* Support a better configuration file format instead of the legacy _properties format_, like YAML for example
-* Use alternative comparison for top sections (configuration based)
-* Support multiple alerts configuration. The engine is already capable of handling many alerts with different periods and thresholds. But requires probably a more complex syntax for the configuration file.
-* Use alternative conditions for alerts (with ou without threshold). It requires probably a more complex syntax for the configuration file.
+* Provide stats in **several** periods of time like; _fromStart_, 1day, 1hour, 5min, 10sec
+* Support a better configuration file format (like YAML for example) instead of the legacy _properties format_. 
+* Use alternative comparisons for top sections (configuration based)
+* Support multiple alerts configuration. The engine is already capable of handling many alerts with different periods and thresholds. But it requires a more complex syntax for the configuration file.
+* Use alternative conditions for alerts (with ou without threshold). It requires a more complex syntax for the configuration file.
 * Support of date parsing from most of [`strftime()` patterns](https://www.systutorials.com/docs/linux/man/3-strftime/) according to the *LogFileDateExt* access log configuration.
-The value of *LogFileDateExt* could be passed as a parameter and is meaningful since this is the parameter used for the access log formatting known from the user. It should be possible [in Java with some limitations](https://tomcat.apache.org/tomcat-4.1-doc/catalina/docs/api/org/apache/catalina/util/Strftime.html) to use a date-time formatting using the `strftime()` syntax. The access log configuration *LogTime* value is not important since we compute relative durations and absolute instants are not considered. 
-* It should be noted, that if the format includes only the time, without the date for example, then the program would not be able to consider times before midnight from the next day. Likewise, the timezone offset should be provided. If any time scope is missing, it would lead to wrong results. So we should make sure that the time is fully defined. It could be done when checking for the input date-time pattern.
-* Makes possible to save/restore statistics so that a next start can retrieve the stats of a previous run.
-* Have some persistence for gathered metrics for later analysis
-* Rewrite this application in the *Rust language* in order to get better performance
-* Build a lightweight HTTP API so that client programs can easily access the metrics. The HTTP API will need to support some real-time feature (like with HTTP-Streaming or Web-Socket) in order to notify alerts.
+The value of *LogFileDateExt* could be passed as a parameter and is meaningful since this is the parameter used for the access log formatting known from the user. It should be possible [in Java with some limitations](https://tomcat.apache.org/tomcat-4.1-doc/catalina/docs/api/org/apache/catalina/util/Strftime.html) to use a date-time formatting using the `strftime()` syntax. On the other hand, the access log configuration *LogTime* value is not important since we compute relative durations and absolute instants are not considered. 
+* It should be noted, that if the configured date-time format includes only the time, without the date for example, then the program would not be able to consider times before midnight from the next day. Likewise, the timezone offset should be provided. If any time scope is missing, it would lead to wrong results. So we should make sure that the time is fully defined. It could be done when checking for the input date-time pattern.
+* Makes possible to save/restore statistics so that a next start can retrieve the stats of a previous run. (The alert events can already be persisted).
+* Rewrite this application in the *Rust language* in order to get better performance (because it would no more need a GC or a JIT)
+* Build a lightweight HTTP API so that client programs can easily access the metrics. The HTTP API will need to support some real-time feature (like with HTTP-Streaming or Web-Socket) in order to notify alerts efficiently.
 * Create some Web-based interface that consumes the HTTP API for a better user experience
 
-## Changelogs
+## Changelog
 
-Versions are identified by both Git tags and the POM project version. The version information is also available from 
+Versions are identified by both Git tags and POM project versions. The version information is available from 
 the JAR file manifest.
 
 |_Version_|_Changes_|
