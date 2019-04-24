@@ -43,6 +43,10 @@ public class StatisticAggregator implements Statistic, Consumer<AccessLogLine> {
 		return maxSectionCount;
 	}
 
+	int getSectionCount() {
+		return statsBySection.size();
+	}
+
 	@Override
 	public Comparator<ScopedStatistic> sectionComparator() {
 		return comparator;

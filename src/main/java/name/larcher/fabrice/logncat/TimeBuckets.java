@@ -65,6 +65,10 @@ public class TimeBuckets<
 	 */
 	private final ConcurrentSkipListMap<Long, A> buckets;
 
+	public int getBucketCount() {
+		return buckets.size();
+	}
+
 	@Override
 	public final void accept(T t) {
 		long key = t.getTimeInMillis() / bucketDurationMillis;

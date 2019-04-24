@@ -11,6 +11,7 @@ import name.larcher.fabrice.logncat.read.AccessLogLine;
 import java.time.Duration;
 import java.util.Comparator;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BinaryOperator;
 import java.util.function.Consumer;
 
@@ -66,7 +67,10 @@ public final class StatisticTimeBucketsFactory {
 
 		List<? extends Statistic> reduceLatest(long untilMillis, List<Duration> requestDurations);
 
+		int getBucketCount();
 	}
+
+	public static final AtomicInteger MAX_SECTION_COUNT_EVER = new AtomicInteger();
 
 	/**
 	 * The statsHolderFactory method that binds the {@link TimeBuckets} with the {@link Statistic} class.
@@ -89,12 +93,24 @@ public final class StatisticTimeBucketsFactory {
 
 			@Override
 			public List<? extends Statistic> reduceLatest(long untilMillis, List<Duration> requestDurations) {
-				return buckets.reduceLatestAndClean(untilMillis, requestDurations);
+
+				List<StatisticForReduce> statisticForReduces = buckets.reduceLatestAndClean(untilMillis, requestDurations);
+				if (!statisticForReduces.isEmpty()) {
+					MAX_SECTION_COUNT_EVER.accumulateAndGet(
+							statisticForReduces.get(statisticForReduces.size() - 1).getSectionCount(),
+							Math::max);
+				}
+				return statisticForReduces;
 			}
 
 			@Override
 			public void accept(AccessLogLine accessLogLine) {
 				buckets.accept(accessLogLine);
+			}
+
+			@Override
+			public int getBucketCount() {
+				return buckets.getBucketCount();
 			}
 		};
 	}

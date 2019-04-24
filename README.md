@@ -257,6 +257,7 @@ incoming lines (bound to time) of the access log file.
 * Use a _curses like_ library for console output (in order to refresh overall and latest stats)
 * Alerts events are sent to the standard output in a format that is easy to parse. It makes easy to log alerts from one program start to another.
 * With the `-o <alerts_log_file>`, we can provide a file path of a file that stores all alert events.
+* It provides some simple JMX metrics, mainly related to memory usage. See the class `Monitoring`.
 
 ## Technical remarks
 
@@ -272,8 +273,8 @@ incoming lines (bound to time) of the access log file.
 
 ## Next steps
 
+* Add some automatic testing about the retrieval of the latest statistics with a better code coverage.
 * Use a logging library like _logBack_ with an output towards a log file whose path can be configured.
-* Provide JMX metrics. Especially about the maximum statictic's section count and the size of the time bucket's internal map.
 * Makes possible to issue a configured command call when an alert is raised/released. 
 * Provide stats in several periods of time like; _fromStart_, 1day, 1hour, 5min, 10sec
 * Support a better configuration file format instead of the legacy _properties format_, like YAML for example
@@ -284,7 +285,7 @@ incoming lines (bound to time) of the access log file.
 The value of *LogFileDateExt* could be passed as a parameter and is meaningful since this is the parameter used for the access log formatting known from the user. It should be possible [in Java with some limitations](https://tomcat.apache.org/tomcat-4.1-doc/catalina/docs/api/org/apache/catalina/util/Strftime.html) to use a date-time formatting using the `strftime()` syntax. The access log configuration *LogTime* value is not important since we compute relative durations and absolute instants are not considered. 
 * It should be noted, that if the format includes only the time, without the date for example, then the program would not be able to consider times before midnight from the next day. Likewise, the timezone offset should be provided. If any time scope is missing, it would lead to wrong results. So we should make sure that the time is fully defined. It could be done when checking for the input date-time pattern.
 * Makes possible to save/restore statistics so that a next start can retrieve the stats of a previous run.
-* Have some persistence for gathered metrics 
+* Have some persistence for gathered metrics for later analysis
 * Rewrite this application in the *Rust language* in order to get better performance
 * Build a lightweight HTTP API so that client programs can easily access the metrics. The HTTP API will need to support some real-time feature (like with HTTP-Streaming or Web-Socket) in order to notify alerts.
 * Create some Web-based interface that consumes the HTTP API for a better user experience

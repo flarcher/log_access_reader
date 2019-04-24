@@ -27,6 +27,7 @@ import java.util.*;
 import java.util.concurrent.*;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
+import java.util.stream.Stream;
 
 /**
  * Program entry point.
@@ -137,14 +138,22 @@ public class Main {
 				enableConsole ? console::beforePrint : (t) -> {},
 				enableConsole ? console::afterPrint : (t) -> {},
 				clock);
-		watcherTask.setOverallStats(StatisticContext.createOverallContext(
+		StatisticContext overallContext = StatisticContext.createOverallContext(
 				latestLogLineConsumer::getFirst,
 				latestLogLineConsumer::getLatest,
 				TimeBound::getTimeInMillis,
-				topSectionCount, statsComparator, statsListener));
+				topSectionCount, statsComparator, statsListener);
+		watcherTask.setOverallStats(overallContext);
 		watcherTask.setLatestStats(Collections.singletonList(StatisticContext.createTimeRangeContext(
 				latestStatsDuration, topSectionCount, statsComparator, statsListener)));
 		watcherTask.setAlertStates(Collections.singletonList(new AlertState<>(throughputAlertConfig, alertingDuration)));
+
+		//--- JMX
+		if (enableConsole) {
+			Monitoring.register(buckets,
+					overallContext::getDuration,
+					Stream.of(latestStatsDuration, alertingDuration).max(Comparator.naturalOrder()).get());
+		}
 
 		//--- Starting the engine...
 		executorService = createExecutorService(enableConsole ? 3 : 2);
