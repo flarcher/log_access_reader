@@ -299,7 +299,7 @@ the JAR file manifest.
 |0.0|Initial version|
 |1.0|Statistics sent to the standard output stream|
 |2.0|Handling of alerts sent to the standard error stream|
-|3.0|Use of curses in a terminal|
+|3.0|Use of curses in a terminal as the user interface|
 |4.0|Alert events sent to standard output and triggers some commands|
 
 ## License

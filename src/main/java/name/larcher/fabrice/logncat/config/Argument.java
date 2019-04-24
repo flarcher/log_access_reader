@@ -12,6 +12,7 @@ import java.time.DateTimeException;
 import java.time.Duration;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.util.Optional;
 
 /**
  * Configuration argument for the program.
@@ -27,10 +28,10 @@ public enum Argument {
 		}
 
 		@Override
-		boolean isValid(String value) {
+		Optional<String> validate(String value) {
 			// We check only that the path is well-formed
 			// If the files does not exist, then it is ignored and no other configuration will be loaded
-			return getPath(value) != null;
+			return Optional.ofNullable(getPath(value) != null ? null : "Invalid path " + value);
 		}
 	},
 
@@ -43,7 +44,7 @@ public enum Argument {
 		}
 
 		@Override
-		boolean isValid(String value) {
+		Optional<String> validate(String value) {
 			return canRead(value);
 		}
 	},
@@ -57,7 +58,7 @@ public enum Argument {
 		}
 
 		@Override
-		boolean isValid(String value) {
+		Optional<String> validate(String value) {
 			return isDuration(value);
 		}
 	},
@@ -72,7 +73,7 @@ public enum Argument {
 		}
 
 		@Override
-		boolean isValid(String value) {
+		Optional<String> validate(String value) {
 			return isDuration(value);
 		}
 	},
@@ -90,15 +91,17 @@ public enum Argument {
 		}
 
 		@Override
-		boolean isValid(String value) {
+		Optional<String> validate(String value) {
 			try {
-				DateTimeFormatter formatter = DateTimeFormatter.ofPattern(value);
+				DateTimeFormatter.ofPattern(value);
 				// We need both the date and the time
 				// TODO: check that the format includes the whole date-time information
-				return true;
+				return Optional.empty();
 			}
 			catch (@SuppressWarnings("unused") IllegalArgumentException e) {
-				return false;
+				return Optional.of("Invalid date time pattern '" + value + "'. " +
+					"See https://docs.oracle.com/javase/8/docs/api/java/time/format/DateTimeFormatter.html#patterns " +
+					"for more information about supported patterns.");
 			}
 		}
 
@@ -113,7 +116,7 @@ public enum Argument {
 		}
 
 		@Override
-		boolean isValid(String value) {
+		Optional<String> validate(String value) {
 			return isPositiveInteger(value);
 		}
 	},
@@ -128,7 +131,7 @@ public enum Argument {
 		}
 
 		@Override
-		boolean isValid(String value) {
+		Optional<String> validate(String value) {
 			return isPositiveInteger(value);
 		}
 	},
@@ -142,7 +145,7 @@ public enum Argument {
 		}
 
 		@Override
-		boolean isValid(String value) {
+		Optional<String> validate(String value) {
 			return isDuration(value);
 		}
 	},
@@ -156,7 +159,7 @@ public enum Argument {
 		}
 
 		@Override
-		boolean isValid(String value) {
+		Optional<String> validate(String value) {
 			return isDuration(value);
 		}
 	},
@@ -170,7 +173,7 @@ public enum Argument {
 		}
 
 		@Override
-		boolean isValid(String value) {
+		Optional<String> validate(String value) {
 			return isDuration(value);
 		}
 	},
@@ -184,7 +187,7 @@ public enum Argument {
 		}
 
 		@Override
-		boolean isValid(String value) {
+		Optional<String> validate(String value) {
 			return isPositiveInteger(value);
 		}
 	},
@@ -198,13 +201,13 @@ public enum Argument {
 		}
 
 		@Override
-		boolean isValid(String value) {
+		Optional<String> validate(String value) {
 			try {
 				ZoneId.of(value);
-				return true;
+				return Optional.empty();
 			}
 			catch (@SuppressWarnings("unused") DateTimeException e) {
-				return false;
+				return Optional.of("Unknown IANA timezone ID '" + value +"'");
 			}
 		}
 	},
@@ -218,8 +221,9 @@ public enum Argument {
 		}
 
 		@Override
-		boolean isValid(String value) {
-			return value.isEmpty() || canRead(value);
+		Optional<String> validate(String value) {
+			// If empty, we output towards the standard output
+			return value.isEmpty() ? Optional.empty() : canRead(value);
 		}
 	},
 
@@ -237,22 +241,38 @@ public enum Argument {
 		}
 	}
 
-	private static boolean canRead(String filePath) {
+	private static Optional<String> canRead(String filePath) {
 		Path path = getPath(filePath);
-		return path != null && !Files.isDirectory(path) && Files.isReadable(path);
+		if (path == null) {
+			return Optional.of("Invalid path " + filePath);
+		}
+		if (Files.isDirectory(path)) {
+			return Optional.of("A file expected on " + filePath);
+		}
+		if (!Files.isReadable(path)) {
+			return Optional.of("The file " + filePath + " can not be read");
+		}
+		return Optional.empty();
 	}
 
-	private static boolean isPositiveInteger(String intStr) {
+	private static Optional<String> isPositiveInteger(String intStr) {
 		try {
-			return Integer.valueOf(intStr) > 0;
+			if (Integer.valueOf(intStr) <= 0) {
+				return Optional.of("'" + intStr + "' is not a strictly positive value");
+			}
+			return Optional.empty();
 		}
 		catch (@SuppressWarnings("unused") NumberFormatException e) {
-			return false;
+			return Optional.of("Invalid number '" + intStr + "'");
 		}
 	}
 
-	private static boolean isDuration(String durStr) {
-		return DurationConverter.fromString(durStr) != null;
+	private static Optional<String> isDuration(String durStr) {
+		return DurationConverter.fromString(durStr) != null
+				? Optional.empty()
+				: Optional.of("Invalid duration value '" + durStr + "'. " +
+					"Use lowercase letters like 'h', 'm' and 's' for respectively hours, minutes and seconds. " +
+					"An example value can be: 2h34m5s");
 	}
 
 	/**
@@ -284,7 +304,11 @@ public enum Argument {
 
 	public abstract String getDefaultValue();
 
-	abstract boolean isValid(String value);
+	/**
+	 * @param value The given argument value.
+	 * @return An potential error message.
+	 */
+	abstract Optional<String> validate(String value);
 
 	public String getDescription() { return description; }
 }

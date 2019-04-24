@@ -3,9 +3,8 @@
  * Fabrice Larcher
  */
 
-package name.larcher.fabrice.logncat.config;
+package name.larcher.fabrice.logncat;
 
-import name.larcher.fabrice.logncat.DurationConverter;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -25,5 +24,4 @@ public class DurationConverterTest {
 		Duration parsedDuration = DurationConverter.fromString(s);
 		Assert.assertEquals(duration, parsedDuration);
 	}
-
 }

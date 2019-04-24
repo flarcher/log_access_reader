@@ -97,6 +97,8 @@ public final class Configuration {
 		return argsMap;
 	}
 
+	private static final String UNDEFINED_MSG = "Should be defined";
+
 	public Configuration(List<String> arguments) {
 		this(arguments, true, null);
 	}
@@ -141,9 +143,9 @@ public final class Configuration {
 				if (defaultConfigFilePath == null) {
 					defaultConfigFilePath = configFileArgument.getDefaultValue();
 				}
-				if (!configFileArgument.isValid(defaultConfigFilePath)) {
-					throw new IllegalArgumentException("Invalid default configuration file path " + defaultConfigFilePath);
-				}
+				configFileArgument.validate(defaultConfigFilePath).ifPresent(
+						str -> { throw new IllegalArgumentException(str);
+					});
 				// We do not force the default path if the file does not exists
 				if (Files.isRegularFile(Paths.get(defaultConfigFilePath))) {
 					configFileLocation = defaultConfigFilePath;
@@ -170,17 +172,19 @@ public final class Configuration {
 
 		// 5th step: We make sure that all argument values are valid
 		if (enableValidation) {
-			Map<Argument, String> invalidPairs = argsMap.entrySet().stream()
-				.filter(entry -> entry.getValue() == null || !entry.getKey().isValid(entry.getValue()))
-				.collect(Collectors.toMap(
-						Map.Entry::getKey,
-						entry -> Objects.toString(entry.getValue()) // Null safety
-				));
-			if (!invalidPairs.isEmpty()) {
-				throw new IllegalArgumentException("Invalid argument value(s): " +
-					invalidPairs.entrySet().stream()
-						.map(entry -> entry.getKey().name() + ": " + entry.getValue())
-						.collect(Collectors.joining(", ")));
+			List<String> errorsList = argsMap.entrySet().stream()
+					.map(entry -> new AbstractMap.SimpleImmutableEntry<>(entry.getKey(),
+						entry.getValue() == null
+							? Optional.of(UNDEFINED_MSG) // Is undefined -> this is an error
+							: entry.getKey().validate(entry.getValue()))) // Calls the validate methods
+					.filter(entry -> entry.getValue().isPresent()) // If it has an error
+					.map(entry ->  // Formatting
+							entry.getKey().name() + " (" + entry.getKey().getDescription() + "):\n" +
+							entry.getValue().get())
+					.collect(Collectors.toList());
+			if (!errorsList.isEmpty()) {
+				throw new IllegalArgumentException("Invalid argument value(s):\n" +
+					String.join("\n", errorsList));
 			}
 		}
 

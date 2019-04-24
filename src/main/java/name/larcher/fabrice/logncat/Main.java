@@ -58,7 +58,7 @@ public class Main {
 		try {
 			configuration = new Configuration(arguments);
 		} catch (IllegalArgumentException e) {
-			badConfiguration(e.getMessage());
+			System.err.println(e.getMessage());
 			System.exit(1);
 			return;
 		}
@@ -210,18 +210,13 @@ public class Main {
 	private static Duration checkDuration(Configuration configuration, Argument argument, Duration minimumDuration) {
 		Duration configuredDuration = DurationConverter.fromString(configuration.getArgument(argument));
 		if (configuredDuration.compareTo(minimumDuration) < 0) {
-			badConfiguration("The duration " + argument.name() +
+			System.err.println("The duration " + argument.name() +
 				" having a value " + DurationConverter.toString(configuredDuration)
 				+ " must be greater than the main loop idle duration of " + DurationConverter.toString(minimumDuration));
 			System.exit(1);
 			return null; // Never executed
 		}
 		return configuredDuration;
-	}
-
-	private static void badConfiguration(String reason) {
-		System.err.println("Bad configuration: " + reason); // TODO: use some logging?
-		System.exit(1);
 	}
 
 	private static void handleThrowable(Throwable t) {

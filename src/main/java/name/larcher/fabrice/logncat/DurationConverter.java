@@ -16,7 +16,7 @@ public interface DurationConverter {
 
 	static Duration fromString(String str) {
 		try {
-			return Duration.parse("PT" + str.toUpperCase());
+			return Duration.parse("PT" + str.trim().toUpperCase());
 		} catch (@SuppressWarnings("unused") DateTimeParseException dte) {
 			return null;
 		}
