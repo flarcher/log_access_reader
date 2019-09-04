@@ -33,7 +33,7 @@
                 <configuration>
                     <archive>
                         <manifest>
-                            <mainClass>name.larcher.fabrice.logncat.Main</mainClass>
+                            <mainClass>flarcher.log.access.Main</mainClass>
                         </manifest>
                         <manifestEntries>
                             <appVersion>${project.version}</appVersion>
