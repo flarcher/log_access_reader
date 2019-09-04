@@ -14,7 +14,7 @@ JMX_PORT=9000
 DEBUG_PORT=8000
 MAX_HEAP_SIZE=2G
 
-JAR_FILE="$(ls -ld target/log-n-cat-*.jar 2>/dev/null | cut -d' ' -f9)"
+JAR_FILE="$(ls -ld target/log_access_reader-*.jar 2>/dev/null | cut -d' ' -f9)"
 if test -z $JAR_FILE
 then
     # Builds the project
