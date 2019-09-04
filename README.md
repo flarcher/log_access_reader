@@ -297,4 +297,5 @@ the JAR file manifest.
 
 ## License
 
-Copyright 2019 - **Fabrice LARCHER** _(All rights reserved)_
+This project is licensed under the _GNU LESSER GENERAL PUBLIC LICENSE_ version 3. See the *LICENSE* file for details.
+
