@@ -16,7 +16,6 @@ import flarcher.log.access.read.AccessLogLine;
 import flarcher.log.access.read.AccessLogParser;
 import flarcher.log.access.read.AccessLogReadTask;
 import flarcher.log.access.stat.*;
-import name.larcher.fabrice.logncat.stat.*;
 
 import java.io.IOException;
 import java.io.PrintStream;
@@ -260,7 +259,6 @@ public class Main {
 
 	private static void printHelp() {
 		PrintStream printer = System.out;
-		printer.println("LOG'n-CAT \uD83D\uDC31");
 		printer.println(" Prints statistics and notifies alerts by reading access log files.");
 		printer.println();
 		printer.println("Possible arguments are:");

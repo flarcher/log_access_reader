@@ -1,6 +1,7 @@
 # HTTP access log reader
 
 Prints statistics and notifies alerts related to HTTP access log files.
+It uses a simple console for outputs.
 This is a Java-based implementation.
 
 ## Input specification
@@ -144,8 +145,7 @@ Here are some example of use:
 Here is the output of the program with the `-h` argument:
 
 ```
-LOG'n-CAT 🐱
- Prints statistics and notifies alerts by reading access log files.
+Prints statistics and notifies alerts by reading access log files.
 
 Possible arguments are:
 
@@ -228,32 +228,28 @@ Possible arguments are:
   The default value is «10»
 ```
 
-## Requirements
+## Features
 
-* Consume an actively written-to w3c-formatted HTTP access log. It should default to reading /tmp/access.log and be overrideable.  ✓
-* Display stats every 10s about the traffic during those 10s: the sections of the web site with the most hits, as well as interesting summary statistics on the traffic as a whole. A section is defined as being what's before the second '/' in the resource section of the log line. For example, the section for "/pages/create" is "/pages" ✓
-* Make sure a user can keep the app running and monitor the log file continuously ✓
-* Whenever total traffic for the past 2 minutes exceeds a certain number on average, add a message saying that “High traffic generated an alert - hits = {value}, triggered at {time}”. The default threshold should be 10 requests per second, and should be overridable. ✓
-* Whenever the total traffic drops again below that value on average for the past 2 minutes, add another message detailing when the alert recovered. ✓
-* Make sure all messages showing when alerting thresholds are crossed remain visible on the page for historical reasons. ✓
-* Write a test for the alerting logic. ✓
-* Explain how you’d improve on this application design. ✓ _(please see below in this file)_
-* If you have access to a linux docker environment, we'd love to be able to docker build and run your project! ✓ _(See scripts `docker_build.sh`, `docker_run.sh` and the `Dockerfile`)_ ✓
-
-## Additional features
-
-* Provide an help message with `-h` or `--help`
-* Reading of a configuration file (although in a legacy _properties_ format) whose located can be given as an argument.
-* Configuration of the date-time pattern through a parameter `DATE_TIME_FORMAT`. For now, the *LogFileDateExt* access log configuration value can not be used, and the configuration supports only patterns defined according the [Java conventions](https://docs.oracle.com/javase/8/docs/api/java/time/format/DateTimeFormatter.html#patterns).
+* Consumes an actively written-to w3c-formatted HTTP access log. It should default to reading /tmp/access.log and be overrideable.  ✓
+* Displays stats every 10s about the traffic during those 10s: the sections of the web site with the most hits, as well as interesting summary statistics on the traffic as a whole. A section is defined as being what's before the second '/' in the resource section of the log line. For example, the section for "/pages/create" is "/pages" ✓
+* Makes sure a user can keep the app running and monitor the log file continuously ✓
+* Whenever total traffic for the past 2 minutes exceeds a certain number on average, adds a message saying that “High traffic generated an alert - hits = {value}, triggered at {time}”. The default threshold should be 10 requests per second, and should be overridable. ✓
+* Whenever the total traffic drops again below that value on average for the past 2 minutes, adds another message detailing when the alert recovered. ✓
+* Makes sure all messages showing when alerting thresholds are crossed remain visible on the page for historical reasons. ✓
+* Includes testing for the alerting logic. ✓
+* Provides docker configuration for building and running _(See scripts `docker_build.sh`, `docker_run.sh` and the `Dockerfile`)_ ✓
+* Provides an help message with `-h` or `--help`
+* Reads a configuration file (although in a legacy _properties_ format) whose location can be given as an argument.
+* Supports a configuration of the date-time pattern through a parameter `DATE_TIME_FORMAT`. For now, the *LogFileDateExt* access log configuration value can not be used, and the configuration supports only patterns defined according the [Java conventions](https://docs.oracle.com/javase/8/docs/api/java/time/format/DateTimeFormatter.html#patterns).
 But the value can still be changed depending on *LogFileDateExt* value.
-* Use of a _Duration_ syntax for configuration argument instead of a milliseconds count for example. Duration information in configuration entries can have values like `23m` (for 23 minutes) or `1m30s` (for one minute and 30 seconds).
-* Display stats at a configurable rate for the latest metrics of a greater period of time. By default, we print each second the statistics about the last 10 seconds.
+* Uses a _Duration_ syntax for configuration argument instead of a milliseconds count for example. Duration information in configuration entries can have values like `23m` (for 23 minutes) or `1m30s` (for one minute and 30 seconds).
+* Displays stats at a configurable rate for the latest metrics of a greater period of time. By default, we print each second the statistics about the last 10 seconds.
 * The alert raising mechanism responsiveness does not depend on the time duration of the scan on which the alert thresholds are tested. The two durations can be configured through two separate arguments.
-* There is a robustness/support related to timezone changes (because the timezone offset is read while parsing)
+* There is some robustness related to timezone changes (because the timezone offset is read while parsing)
 * The reading and processing mechanism is robust about inputs not coming in the chronological order and/or been late. Moreover, the entry processing follows a specific time clock (see class `ReaderClock`) that adapt its speed to the 
 incoming lines (bound to time) of the access log file.
-* For both overall and section related statistics, we display the request count and the byte count transfered.
-* For both overall and section related statistics, we display the throughput per second and the bandwidth per second.
+* For both overall and section related statistics, displays the request count and the byte count transfered.
+* For both overall and section related statistics, displays the throughput per second and the bandwidth per second.
 * Use of a _curses like_ library for console output (in order to refresh overall and latest stats)
 * Alerts events are sent to the standard output or to a file (with `-o <alerts_log_file>`). The related format is easy to parse. It makes easy to log alerts from one program start to another.
 * It provides some simple JMX metrics, mainly related to memory usage. See the class `Monitoring`.
@@ -269,7 +265,6 @@ incoming lines (bound to time) of the access log file.
 * The code makes possible to support many durations for watching latest statistics. The same is also true for alerting. Furthermore, only the longest duration impacts the memory usage, not the count of durations involved. The use of many durations is not supported by any configuration mean however.
 * The alert configuration could extended so that it can be based on any metric (other than only the request throughput) and any condition. The class `AlertConfig` uses a `java.util.function.Predicate` instance for its definition, so that the code is flexible to any alert condition based on gathered data (represented by an instance of `Statistic`). The code makes possible to configure multiple alerts for various predicates (thresholds on any metrics) over different time durations and any mix of them. Configuration of alerting might still be complex for the user, and no such configuration mean is available in this version of the program. But still, if some requirement about alerting changes, we can already change the default (static) behavior easily.
 
-
 ## Next steps
 
 * Add some automatic testing about the retrieval of the latest statistics with a better code coverage.
@@ -284,9 +279,8 @@ incoming lines (bound to time) of the access log file.
 The value of *LogFileDateExt* could be passed as a parameter and is meaningful since this is the parameter used for the access log formatting known from the user. It should be possible [in Java with some limitations](https://tomcat.apache.org/tomcat-4.1-doc/catalina/docs/api/org/apache/catalina/util/Strftime.html) to use a date-time formatting using the `strftime()` syntax. On the other hand, the access log configuration *LogTime* value is not important since we compute relative durations and absolute instants are not considered. 
 * It should be noted, that if the configured date-time format includes only the time, without the date for example, then the program would not be able to consider times before midnight from the next day. Likewise, the timezone offset should be provided. If any time scope is missing, it would lead to wrong results. So we should make sure that the time is fully defined. It could be done when checking for the input date-time pattern.
 * Makes possible to save/restore statistics so that a next start can retrieve the stats of a previous run. (The alert events can already be persisted).
-* Rewrite this application in the *Rust language* in order to get better performance (because it would no more need a GC or a JIT)
+* Rewrite this application in the *Rust language* in order to get better performance (because it would no more need a GC or a JIT)?
 * Build a lightweight HTTP API so that client programs can easily access the metrics. The HTTP API will need to support some real-time feature (like with HTTP-Streaming or Web-Socket) in order to notify alerts efficiently.
-* Create some Web-based interface that consumes the HTTP API for a better user experience
 
 ## Changelog
 
